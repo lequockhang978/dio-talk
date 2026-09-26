@@ -60,6 +60,7 @@ import {
   type AppUpdateInfo
 } from './services/updateService';
 import { UpdateModal } from './components/UpdateModal';
+import { soundService } from './services/soundService';
 
 const DEFAULT_API_KEY = 'sk-agw-c6Xrt2h0y5mByXobFPPsNygbF9qWhL2uYL1K';
 const DEFAULT_API_URL = 'https://imgxh.eu.org/v1/chat/completions';
@@ -1231,75 +1232,9 @@ export default function App() {
     setTermsState(prev => prev.map(t => t.id === termId ? { ...t, dots: 1, mastered: false } : t));
   };
 
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  useEffect(() => {
-    // Pre-initialize SpeechSynthesis voices for Mobile WebView
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.getVoices();
-        window.speechSynthesis.onvoiceschanged = () => {
-          window.speechSynthesis.getVoices();
-        };
-      } catch (e) {
-        // ignore
-      }
-    }
-  }, []);
-
-  const fallbackWebSpeech = (cleanText: string) => {
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(cleanText);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.92;
-        const voices = window.speechSynthesis.getVoices();
-        const enVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-        if (enVoice) utterance.voice = enVoice;
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.warn('SpeechSynthesis error:', err);
-      }
-    }
-  };
-
   const speakText = (text: string) => {
     if (!text || isMuted) return;
-    const cleanText = text.trim();
-    if (!cleanText) return;
-
-    // Stop any previously playing audio or speech
-    if (currentAudioRef.current) {
-      try {
-        currentAudioRef.current.pause();
-        currentAudioRef.current.currentTime = 0;
-      } catch {}
-    }
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel();
-      } catch {}
-    }
-
-    // Tier 1: Try HTML5 Audio via Google TTS (Crisp human voice, highly reliable on Android WebView)
-    try {
-      const encoded = encodeURIComponent(cleanText.slice(0, 180));
-      const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encoded}`;
-      const audio = new Audio(audioUrl);
-      currentAudioRef.current = audio;
-      audio.playbackRate = 0.95;
-      
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn('Audio play failed, falling back to Web Speech:', err);
-          fallbackWebSpeech(cleanText);
-        });
-      }
-    } catch {
-      fallbackWebSpeech(cleanText);
-    }
+    soundService.speak(text);
   };
 
   const filteredVocab = termsState.filter(v => {
