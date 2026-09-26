@@ -1260,18 +1260,33 @@ export default function App() {
             </p>
           </div>
 
+          {/* 🌟 NÚT GOOGLE LOGIN NGAY ĐẦU TRANG (1-TAP IN-APP) */}
+          <button
+            type="button"
+            className="dio-google-btn-hero"
+            onClick={handleGoogleSignIn}
+            id="google-hero-signin-btn"
+          >
+            <GoogleIcon />
+            <span>Tiếp tục nhanh bằng Google</span>
+          </button>
+
+          <div className="dio-divider-row">
+            <span>HOẶC TIẾP TỤC VỚI</span>
+          </div>
+
           <div className="dio-auth-tabs">
-            <button
-              className={`dio-auth-tab-btn ${authTab === 'register' ? 'active' : ''}`}
-              onClick={() => setAuthTab('register')}
-            >
-              Tạo tài khoản mới
-            </button>
             <button
               className={`dio-auth-tab-btn ${authTab === 'login' ? 'active' : ''}`}
               onClick={() => setAuthTab('login')}
             >
               Đăng nhập
+            </button>
+            <button
+              className={`dio-auth-tab-btn ${authTab === 'register' ? 'active' : ''}`}
+              onClick={() => setAuthTab('register')}
+            >
+              Tạo tài khoản mới
             </button>
           </div>
 

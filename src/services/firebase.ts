@@ -90,8 +90,11 @@ import { Capacitor } from '@capacitor/core';
  */
 export const signInWithGoogleFirebase = async (customEmail?: string, customName?: string) => {
   // If running inside Android APK (Native platform), do NOT trigger browser redirect/popup
-  // because Capacitor WebView does not support external popup session storage!
-  if (Capacitor.isNativePlatform()) {
+  const isNativeApp = Capacitor.isNativePlatform() || 
+                      (window as any).Capacitor?.isNativePlatform?.() ||
+                      window.location.protocol === 'capacitor:';
+
+  if (isNativeApp) {
     const rawEmail = customEmail || localStorage.getItem('dio_saved_email') || 'thuyenvien@diotalk.vn';
     const rawName = customName || localStorage.getItem('dio_saved_name') || 'Thuyền viên Dio Talk';
     const cleanId = rawEmail.replace(/[^a-zA-Z0-9]/g, '_');

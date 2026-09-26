@@ -1,14 +1,14 @@
 {
-  "version": "1.0.5",
-  "versionCode": 105,
+  "version": "1.0.6",
+  "versionCode": 106,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.0.5 (Fix Toàn Diện Login & Cuộn Trang)",
+  "title": "Bản cập nhật Dio Talk v1.0.6 (Nút Google Login Đầu Trang & Fix Cuộn)",
   "changelog": [
-    "Sửa lỗi đăng nhập trực tiếp trên app mượt mà không cần chuyển sang Chrome",
-    "Sửa lỗi màn hình bị kẹt không cuộn được nút Đăng nhập Google",
-    "Khắc phục triệt để lỗi kiểm tra phiên bản hiển thị pop-up cập nhật liên tục",
-    "Tích hợp Native Android Audio phát âm to rõ chuẩn bản ngữ STCW"
+    "Đưa nút Tiếp tục nhanh bằng Google lên đầu trang để bấm ngay không cần cuộn",
+    "Đăng nhập Google trực tiếp trong ứng dụng 1 chạm, không chuyển sang trình duyệt Chrome",
+    "Sửa lỗi hiển thị và cuộn trang trên màn hình điện thoại",
+    "Khắc phục triệt để lỗi kiểm tra phiên bản hiển thị pop-up cập nhật liên tục"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.5/dio-talk-v1.0.5.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.6/dio-talk-v1.0.6.apk",
   "isMandatory": false
 }
