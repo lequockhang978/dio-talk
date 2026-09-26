@@ -340,8 +340,8 @@ export default function App() {
 
   const handleGoogleSignIn = async () => {
     try {
-      // 1. Xác thực với Firebase Google Sign-In thật
-      const gUser = await signInWithGoogleFirebase();
+      // 1. Xác thực với Firebase Google Sign-In thật (In-app native on Android, or popup on web)
+      const gUser = await signInWithGoogleFirebase(regEmail || undefined, regName || undefined);
       const cloudData = await getProfileFromCloud(gUser.uid);
 
       const googleProfile: UserProfile = cloudData ? {
@@ -1383,6 +1383,18 @@ export default function App() {
               >
                 <GoogleIcon />
                 <span>Đăng ký nhanh bằng Google</span>
+              </button>
+
+              <button
+                type="button"
+                className="study-action-btn"
+                style={{ width: '100%', padding: '12px', borderRadius: 14, fontSize: '0.88rem', marginTop: 10, background: '#F1F5F9', color: '#475569' }}
+                onClick={() => {
+                  localStorage.setItem('dio_is_logged_in', 'true');
+                  setIsLoggedIn(true);
+                }}
+              >
+                ⚓ Vào học ngay (Chế độ Thuyền viên / Bỏ qua)
               </button>
             </form>
           ) : (

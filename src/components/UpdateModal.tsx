@@ -9,6 +9,13 @@ interface UpdateModalProps {
 }
 
 export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose }) => {
+  const handleDismiss = () => {
+    try {
+      localStorage.setItem('dio_dismissed_update', updateInfo.version);
+    } catch {}
+    onClose();
+  };
+
   const handleDownload = () => {
     openApkDownload(updateInfo.apkUrl);
   };
@@ -27,7 +34,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose })
         padding: '16px'
       }}
       onClick={() => {
-        if (!updateInfo.isMandatory) onClose();
+        if (!updateInfo.isMandatory) handleDismiss();
       }}
     >
       <div 
@@ -46,7 +53,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose })
         {/* Close Button */}
         {!updateInfo.isMandatory && (
           <button
-            onClick={onClose}
+            onClick={handleDismiss}
             style={{
               position: 'absolute',
               top: 16,
@@ -182,7 +189,7 @@ export const UpdateModal: React.FC<UpdateModalProps> = ({ updateInfo, onClose })
 
           {!updateInfo.isMandatory && (
             <button
-              onClick={onClose}
+              onClick={handleDismiss}
               style={{
                 width: '100%',
                 padding: '10px 14px',

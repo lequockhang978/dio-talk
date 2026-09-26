@@ -1704,12 +1704,16 @@ img {
 /* ============================================================================ */
 .dio-auth-screen {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  padding: 24px 16px;
+  padding: 24px 16px 80px 16px;
   background: linear-gradient(180deg, #F0F7FF 0%, #FFFFFF 100%);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
 .dio-auth-card {
@@ -1717,9 +1721,11 @@ img {
   width: 100%;
   max-width: 440px;
   border-radius: 28px;
-  padding: 28px 22px;
+  padding: 24px 20px;
   box-shadow: 0 16px 36px rgba(37, 99, 235, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
   border: 1px solid #E2E8F0;
+  margin: auto 0;
+  box-sizing: border-box;
 }
 
 .dio-auth-hero {

@@ -12,15 +12,18 @@ export interface AppUpdateInfo {
 }
 
 // Current App Version
-export const CURRENT_APP_VERSION = '1.0.0';
-export const CURRENT_VERSION_CODE = 100;
-export const CURRENT_VERSION_TAG = 'v1.0-MC1';
+export const CURRENT_APP_VERSION = '1.0.5';
+export const CURRENT_VERSION_CODE = 105;
+export const CURRENT_VERSION_TAG = 'v1.0.5';
 
 // Default GitHub Raw / Public JSON endpoint (fallback)
 export const DEFAULT_UPDATE_JSON_URL = 'https://raw.githubusercontent.com/lequockhang978/dio-talk/main/public/version.json';
 
 // Compare version numbers (e.g. "1.0.1" > "1.0.0" or by versionCode)
 export const isNewerVersion = (remoteVersion: string, remoteCode?: number): boolean => {
+  if (remoteCode && remoteCode <= CURRENT_VERSION_CODE) {
+    return false;
+  }
   if (remoteCode && remoteCode > CURRENT_VERSION_CODE) {
     return true;
   }

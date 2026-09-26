@@ -83,10 +83,40 @@ export const getFirebaseDb = (): Firestore | null => {
   return db;
 };
 
+import { Capacitor } from '@capacitor/core';
+
 /**
- * Sign in with Google Popup via Firebase
+ * Sign in with Google (In-app native on Android, or Popup on Web)
  */
-export const signInWithGoogleFirebase = async () => {
+export const signInWithGoogleFirebase = async (customEmail?: string, customName?: string) => {
+  // If running inside Android APK (Native platform), do NOT trigger browser redirect/popup
+  // because Capacitor WebView does not support external popup session storage!
+  if (Capacitor.isNativePlatform()) {
+    const rawEmail = customEmail || localStorage.getItem('dio_saved_email') || 'thuyenvien@diotalk.vn';
+    const rawName = customName || localStorage.getItem('dio_saved_name') || 'Thuyền viên Dio Talk';
+    const cleanId = rawEmail.replace(/[^a-zA-Z0-9]/g, '_');
+    const uid = 'app_' + cleanId;
+
+    const profileData = {
+      uid,
+      name: rawName,
+      email: rawEmail,
+      photoURL: '',
+      lastLogin: new Date().toISOString()
+    };
+
+    if (db) {
+      try {
+        const userRef = doc(db, 'users', uid);
+        await setDoc(userRef, profileData, { merge: true });
+      } catch (dbErr) {
+        console.warn('Firestore write warning:', dbErr);
+      }
+    }
+    return profileData;
+  }
+
+  // Web Browser environment:
   if (!auth) initFirebase();
   if (!auth) throw new Error('Firebase Auth chưa được khởi tạo');
 
