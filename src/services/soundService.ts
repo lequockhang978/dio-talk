@@ -51,7 +51,7 @@ class SoundService {
           rate,
           pitch: 1.0,
           volume: 1.0,
-          category: 'ambient',
+          category: 'playback',
         });
         return;
       } catch (err) {

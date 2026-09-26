@@ -1,13 +1,13 @@
 {
-  "version": "1.0.3",
-  "versionCode": 103,
+  "version": "1.0.4",
+  "versionCode": 104,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.0.3 (Native Android Voice TTS)",
+  "title": "Bản cập nhật Dio Talk v1.0.4 (Tự Động Cấp Quyền & Playback Audio)",
   "changelog": [
-    "Tích hợp Native Android Text-to-Speech Engine từ phần cứng hệ điều hành",
-    "Phát âm to, rõ, chuẩn bản ngữ tiếng Anh Hàng Hải không phụ thuộc WebView",
-    "Đồng bộ chuẩn phát âm giữa Web và ứng dụng điện thoại APK"
+    "Tự động bật hộp thoại hệ thống yêu cầu cấp quyền Micro & Âm thanh khi mở app",
+    "Chuyển chế độ âm thanh sang Playback (phát to rõ qua loa ngoài kể cả khi máy rung)",
+    "Nâng cấp độ ổn định cho Android 10, 11, 12, 13, 14, 15"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.3/dio-talk-v1.0.3.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.4/dio-talk-v1.0.4.apk",
   "isMandatory": false
 }
