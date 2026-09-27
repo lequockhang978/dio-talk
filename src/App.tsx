@@ -334,7 +334,47 @@ export default function App() {
     }
   });
 
+  // Per-Node In-Progress Session (Auto-resumes at current word on reopen)
+  const [lessonSessions, setLessonSessions] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('dio_lesson_sessions');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const saveNodeSession = useCallback((nodeId: string, index: number) => {
+    if (!nodeId) return;
+    setLessonSessions(prev => {
+      const updated = { ...prev, [nodeId]: index };
+      try {
+        localStorage.setItem('dio_lesson_sessions', JSON.stringify(updated));
+      } catch {}
+      if (authenticatedUid) {
+        saveUserFullProgressToCloud(authenticatedUid, { lessonSessions: updated });
+      }
+      return updated;
+    });
+  }, [authenticatedUid]);
+
+  const clearNodeSession = useCallback((nodeId: string) => {
+    if (!nodeId) return;
+    setLessonSessions(prev => {
+      const updated = { ...prev };
+      delete updated[nodeId];
+      try {
+        localStorage.setItem('dio_lesson_sessions', JSON.stringify(updated));
+      } catch {}
+      if (authenticatedUid) {
+        saveUserFullProgressToCloud(authenticatedUid, { lessonSessions: updated });
+      }
+      return updated;
+    });
+  }, [authenticatedUid]);
+
   const handleUnlockAndCompleteNode = (nodeId: string) => {
+    clearNodeSession(nodeId);
     setSkillTreeNodes(prev => {
       const currentIdx = prev.findIndex(n => n.id === nodeId);
       if (currentIdx === -1) return prev;
@@ -744,6 +784,17 @@ export default function App() {
         const mSet = new Set(cloud.masteredWords);
         setTermsState(prev => prev.map(t => mSet.has(t.word) ? { ...t, mastered: true, dots: Math.max(t.dots, 5) } : t));
       }
+
+      // 5. Restore Lesson Sessions (per-node in-progress word index)
+      if (cloud.lessonSessions && typeof cloud.lessonSessions === 'object') {
+        setLessonSessions(prev => {
+          const merged = { ...prev, ...cloud.lessonSessions };
+          try {
+            localStorage.setItem('dio_lesson_sessions', JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
     } catch (e) {
       console.warn('Failed to restore progress from cloud:', e);
     }
@@ -1134,6 +1185,10 @@ export default function App() {
       }));
       setCompletedToday(prev => prev + 1);
       speakText(term.word);
+      if (selectedNode) {
+        const nextTarget = Math.min(currentCourse.terms.length - 1, vocabIndex + 1);
+        saveNodeSession(selectedNode.id, nextTarget);
+      }
     } else {
       saveMasteryRecord(term.id, term.word, false);
     }
@@ -1453,7 +1508,14 @@ export default function App() {
     setActiveMode('vocab-study');
     setVocabStudyType('flashcard');
     setIsCardFlipped(false);
-    setVocabIndex(0);
+
+    // Auto-resume session if user previously studied part of this node
+    const savedIndex = lessonSessions[node.id];
+    const startIndex = (typeof savedIndex === 'number' && savedIndex > 0 && savedIndex < node.terms.length)
+      ? savedIndex
+      : 0;
+
+    setVocabIndex(startIndex);
     setVocabInput('');
     setVocabStatus('idle');
     setShowHint(false);
@@ -1462,9 +1524,19 @@ export default function App() {
     setFlashcardRecallInput('');
     setFlashcardAiResult(null);
 
-    const term = node.terms[0];
+    const term = node.terms[startIndex] || node.terms[0];
     if (term && !isMuted) {
       speakText(`${term.sentenceBefore} ${term.word} ${term.sentenceAfter}`);
+    }
+
+    if (startIndex > 0) {
+      setMilestoneToast({
+        level: 1,
+        title: `Tiếp tục: Thuật ngữ ${startIndex + 1}/${node.terms.length}`,
+        subtitle: `Tự động vào từ bạn đang học dở`,
+        sticker: 'gold-star'
+      });
+      setTimeout(() => setMilestoneToast(null), 3000);
     }
   };
 
@@ -1472,6 +1544,9 @@ export default function App() {
     if (vocabIndex > 0) {
       const prevIdx = vocabIndex - 1;
       setVocabIndex(prevIdx);
+      if (selectedNode) {
+        saveNodeSession(selectedNode.id, prevIdx);
+      }
       setVocabInput('');
       setVocabStatus('idle');
       setShowHint(false);
@@ -1506,6 +1581,10 @@ export default function App() {
       if (!isMuted) {
         speakText(currentTerm.word);
       }
+      if (selectedNode) {
+        const nextTarget = Math.min(currentCourse.terms.length - 1, vocabIndex + 1);
+        saveNodeSession(selectedNode.id, nextTarget);
+      }
     } else {
       setVocabStatus('wrong');
     }
@@ -1515,6 +1594,9 @@ export default function App() {
     if (vocabIndex < currentCourse.terms.length - 1) {
       const nextIdx = vocabIndex + 1;
       setVocabIndex(nextIdx);
+      if (selectedNode) {
+        saveNodeSession(selectedNode.id, nextIdx);
+      }
       setVocabInput('');
       setVocabStatus('idle');
       setShowHint(false);
@@ -1528,6 +1610,9 @@ export default function App() {
       }
     } else {
       // Completed Flip-to-Recall cycle for all new terms in this node!
+      if (selectedNode) {
+        clearNodeSession(selectedNode.id);
+      }
       // Seamlessly progress into Stage 2: 25-Question Interleaved Repetition Protocol!
       launchDaily25Protocol('auto');
     }

@@ -175,6 +175,7 @@ export interface FullUserProgress {
   starsMap: Record<string, number>;
   masteredWords: string[];
   completedToday: number;
+  lessonSessions?: Record<string, number>;
 }
 
 /**
@@ -246,7 +247,8 @@ export const loadUserFullProgressFromCloud = async (uid: string): Promise<FullUs
         unlockedNodeIds: Array.isArray(data.unlockedNodeIds) ? data.unlockedNodeIds : [],
         starsMap: (data.starsMap && typeof data.starsMap === 'object') ? data.starsMap : {},
         masteredWords: Array.isArray(data.masteredWords) ? data.masteredWords : [],
-        completedToday: Number(data.completedToday) || 0
+        completedToday: Number(data.completedToday) || 0,
+        lessonSessions: (data.lessonSessions && typeof data.lessonSessions === 'object') ? data.lessonSessions : {}
       };
     }
   } catch (e) {

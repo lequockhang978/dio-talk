@@ -12,9 +12,9 @@ export interface AppUpdateInfo {
 }
 
 // Current App Version
-export const CURRENT_APP_VERSION = '1.0.9';
-export const CURRENT_VERSION_CODE = 109;
-export const CURRENT_VERSION_TAG = 'v1.0.9';
+export const CURRENT_APP_VERSION = '1.1.0';
+export const CURRENT_VERSION_CODE = 110;
+export const CURRENT_VERSION_TAG = 'v1.1.0';
 
 // Default GitHub Raw / Public JSON endpoint (fallback)
 export const DEFAULT_UPDATE_JSON_URL = 'https://raw.githubusercontent.com/lequockhang978/dio-talk/main/public/version.json';
