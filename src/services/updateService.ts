@@ -80,10 +80,11 @@ export const checkAppUpdate = async (customUrl?: string): Promise<CheckUpdateRes
     console.warn('[UpdateService] Firestore check skipped/failed, trying HTTP fallback', err);
   }
 
-  // 2. Try HTTP JSON fallback (GitHub Raw or custom hosting)
+  // 2. Try HTTP JSON fallback (GitHub Raw or custom hosting with cache-busting)
   const targetUrl = customUrl || localStorage.getItem('dio_update_url') || DEFAULT_UPDATE_JSON_URL;
+  const cacheBustedUrl = targetUrl.includes('?') ? `${targetUrl}&_t=${Date.now()}` : `${targetUrl}?_t=${Date.now()}`;
   try {
-    const res = await fetch(targetUrl, { cache: 'no-store' });
+    const res = await fetch(cacheBustedUrl, { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json() as Partial<AppUpdateInfo>;
       if (data.version && data.apkUrl) {
@@ -99,11 +100,40 @@ export const checkAppUpdate = async (customUrl?: string): Promise<CheckUpdateRes
         if (isNewerVersion(info.version, info.versionCode)) {
           return { hasUpdate: true, updateInfo: info, source: 'github' };
         }
-        return { hasUpdate: false, updateInfo: null, source: 'github' };
       }
     }
   } catch (err: any) {
-    // If neither returned update
+    console.warn('[UpdateService] JSON check failed, trying GitHub Releases API fallback', err);
+  }
+
+  // 3. Try GitHub Releases API directly (zero CDN cache delay)
+  try {
+    const ghRes = await fetch('https://api.github.com/repos/lequockhang978/dio-talk/releases/latest', {
+      headers: { 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    if (ghRes.ok) {
+      const release = await ghRes.json();
+      const tagName = (release.tag_name || '').replace(/^v/i, '');
+      const apkAsset = release.assets?.find((a: any) => a.name?.endsWith('.apk'));
+      if (tagName && apkAsset?.browser_download_url) {
+        const tagParts = tagName.split('.').map((n: string) => parseInt(n, 10) || 0);
+        const calcCode = (tagParts[0] || 1) * 100 + (tagParts[1] || 0) * 10 + (tagParts[2] || 0);
+        const info: AppUpdateInfo = {
+          version: tagName,
+          versionCode: calcCode,
+          releaseDate: release.published_at ? release.published_at.split('T')[0] : '',
+          title: release.name || `Bản cập nhật Dio Talk v${tagName}`,
+          changelog: release.body ? release.body.split('\n').filter((l: string) => l.trim().length > 0) : ['Nâng cấp hiệu năng'],
+          apkUrl: apkAsset.browser_download_url,
+          isMandatory: false
+        };
+        if (isNewerVersion(info.version, info.versionCode)) {
+          return { hasUpdate: true, updateInfo: info, source: 'github' };
+        }
+      }
+    }
+  } catch (err: any) {
     return { hasUpdate: false, updateInfo: null, source: 'none', error: err?.message || 'Không thể kết nối máy chủ' };
   }
 
