@@ -3262,6 +3262,7 @@ img {
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 4px 0 14px 0;
   scrollbar-width: none;
 }
@@ -3270,6 +3271,8 @@ img {
 }
 
 .game-tab-btn {
+  flex-shrink: 0 !important;
+  min-width: max-content;
   white-space: nowrap;
   padding: 8px 16px;
   border-radius: 20px;
@@ -3279,13 +3282,20 @@ img {
   background: #FFFFFF;
   color: #64748B;
   cursor: pointer;
-  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
 }
 
 .game-tab-btn.active {
   background: #0F172A;
   color: #FFFFFF;
   border-color: #0F172A;
+}
+
+.game-tab-btn:active {
+  transform: scale(0.97) !important;
 }
 
 .games-grid {
@@ -4774,14 +4784,13 @@ button:active:not(:disabled),
 .nav-bottom-item:active:not(:disabled),
 .study-action-btn:active:not(:disabled),
 .vocab-play-btn:active:not(:disabled),
-.game-tab-btn:active:not(:disabled),
 .vocab-segment-btn:active:not(:disabled),
 .flashcard-nav-btn-3d:active:not(:disabled),
 .study-header-btn:active:not(:disabled),
 .dio-auth-btn-google:active:not(:disabled),
 .vocab-reset-btn:active:not(:disabled) {
-  transform: scale(0.92) !important;
-  filter: brightness(0.92) !important;
+  transform: scale(0.96) !important;
+  filter: brightness(0.95) !important;
 }
 
 /* Material Ink Touch Ripple Element */

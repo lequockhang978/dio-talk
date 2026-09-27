@@ -1,6 +1,7 @@
 import type { LessonNode, Term, QuizQuestion } from './courses';
 import { EXPANDED_MARITIME_NODES } from './expanded_nodes';
 import { ALL_MARITIME_VOCABULARY, type MaritimeTermFull } from './vocabulary';
+import { getCuratedRatingTerms } from './curriculum_rating_terms';
 
 // ============================================================================
 // STCW MARITIME RANK TIERS SPECIFICATION
@@ -682,7 +683,6 @@ export function generateInfiniteMaritimeNodes(
 // ============================================================================
 
 export function generateRating400Curriculum(department: 'engine' | 'deck'): LessonNode[] {
-  const vocabPool = ALL_MARITIME_VOCABULARY.filter(v => v.department === department || v.department === 'safety');
   const nodes: LessonNode[] = [];
 
   const engineTopics = [
@@ -865,10 +865,11 @@ export function generateRating400Curriculum(department: 'engine' | 'deck'): Less
     const termSlice: Term[] = [];
     const quizzes: QuizQuestion[] = [];
 
-    // Each node gets 5 vocabulary terms -> 80 nodes * 5 = 400 terms!
-    for (let t = 0; t < 5; t++) {
-      const termIdx = (idx * 5 + t) % vocabPool.length;
-      const v: MaritimeTermFull = vocabPool[termIdx];
+    // Fetch 5 specialized terms curated exactly for this topic
+    const curatedTerms = getCuratedRatingTerms(department, stageNum, tInfo.title);
+
+    for (let t = 0; t < curatedTerms.length; t++) {
+      const v = curatedTerms[t];
       const uniqueTermId = `${nodeId}-t${t + 1}`;
 
       const parts = v.exampleEn.split(new RegExp(`(${v.word})`, 'i'));
@@ -884,23 +885,21 @@ export function generateRating400Curriculum(department: 'engine' | 'deck'): Less
         sentenceBefore: before,
         sentenceAfter: after,
         vietnameseSentence: v.exampleVi,
-        hint: v.collocations.slice(0, 2).join(', ') || v.vietnameseContext,
+        hint: v.hint,
         dots: 0,
         mastered: false
       });
 
       if (t < 2) {
-        const otherTerms = vocabPool
+        const otherOptions = curatedTerms
           .filter(o => o.word.toLowerCase() !== v.word.toLowerCase())
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 3)
           .map(o => o.word.toLowerCase());
 
-        const options = [v.word.toLowerCase(), ...otherTerms].sort(() => 0.5 - Math.random());
+        const options = [v.word.toLowerCase(), ...otherOptions.slice(0, 3)].sort(() => 0.5 - Math.random());
 
         quizzes.push({
           id: `q-${uniqueTermId}`,
-          prompt: `Thuật ngữ nào mang ý nghĩa: "${v.meaningVi}" (${v.vietnameseContext})?`,
+          prompt: `Thuật ngữ nào mang ý nghĩa: "${v.meaningVi}"?`,
           word: v.word.toLowerCase(),
           phonetic: v.phonetic,
           correctAnswer: v.word.toLowerCase(),
