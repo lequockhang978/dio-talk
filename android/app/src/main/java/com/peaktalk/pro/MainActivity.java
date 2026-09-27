@@ -11,7 +11,10 @@ import android.webkit.WebView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.app.Dialog;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Message;
+import android.webkit.DownloadListener;
 import android.webkit.WebViewClient;
 import com.getcapacitor.BridgeActivity;
 import java.util.ArrayList;
@@ -79,6 +82,20 @@ public class MainActivity extends BridgeActivity {
                 settings.setUserAgentString(defaultUa.replace("; wv", ""));
             }
 
+            // Handle APK downloads directly via system Download Manager / Browser
+            webView.setDownloadListener(new DownloadListener() {
+                @Override
+                public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
             // Grant WebRTC and audio permissions automatically & handle Google Sign-In popups
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
@@ -107,9 +124,38 @@ public class MainActivity extends BridgeActivity {
                         popupSettings.setUserAgentString(pUa.replace("; wv", ""));
                     }
 
+                    popupWebView.setDownloadListener(new DownloadListener() {
+                        @Override
+                        public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimetype, long contentLength) {
+                            if (dialog.isShowing()) {
+                                dialog.dismiss();
+                            }
+                            try {
+                                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                startActivity(intent);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+
                     popupWebView.setWebViewClient(new WebViewClient() {
                         @Override
                         public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                            if (url != null && (url.endsWith(".apk") || url.contains("/releases/download/"))) {
+                                if (dialog.isShowing()) {
+                                    dialog.dismiss();
+                                }
+                                try {
+                                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    startActivity(intent);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                                return true;
+                            }
                             return false;
                         }
                     });

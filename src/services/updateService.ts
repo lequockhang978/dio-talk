@@ -140,10 +140,26 @@ export const checkAppUpdate = async (customUrl?: string): Promise<CheckUpdateRes
   return { hasUpdate: false, updateInfo: null, source: 'none' };
 };
 
-/**
- * Trigger APK download / update link
- */
 export const openApkDownload = (apkUrl: string) => {
   if (!apkUrl) return;
-  window.open(apkUrl, '_blank', 'noopener,noreferrer');
+  try {
+    const a = document.createElement('a');
+    a.href = apkUrl;
+    a.target = '_system';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (e) {
+    console.error('Error triggering download via anchor:', e);
+  }
+
+  // Direct location assign fallback to ensure system browser catches download
+  setTimeout(() => {
+    try {
+      window.location.href = apkUrl;
+    } catch (e) {
+      console.error('Error with location.href fallback:', e);
+    }
+  }, 200);
 };
