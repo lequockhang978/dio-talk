@@ -1,14 +1,14 @@
 {
-  "version": "1.1.1",
-  "versionCode": 111,
+  "version": "1.1.2",
+  "versionCode": 112,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.1.1 (Chế Độ Hải Trình Ngoại Tuyến & Bộ Nhớ Đệm Offline)",
+  "title": "Bản cập nhật Dio Talk v1.1.2 (Sửa lỗi 10 Sĩ quan AI, Microphone & Modal)",
   "changelog": [
-    "Kích hoạt bộ nhớ đệm Firestore IndexedDB: Học hoàn toàn ngoại tuyến khi đi biển không có sóng",
-    "Tự động lưu hàng đợi tiến độ ngoại tuyến và đồng bộ lên Cloud ngay khi có kết nối mạng",
-    "Trợ lý AI phản xạ mô phỏng chuẩn IMO STCW khi mất mạng, không gián đoạn hội thoại",
-    "Huy hiệu và thông báo trạng thái kết nối mạng trực quan, ổn định"
+    "Tách riêng 10 Sĩ quan AI với chủ đề, kịch bản mở đầu và Prompt phản xạ chuẩn IMO STCW chuyên biệt",
+    "Sửa lỗi Micro đàm thoại: Cấp quyền Android tự động và xử lý bắt lỗi giọng nói chi tiết",
+    "Giao diện Modal Dio Talk tương phản cao: Khắc phục lỗi chữ trắng trên nền trắng của hệ thống",
+    "Reset toàn bộ chuỗi streak và từ vựng học thử về 0 sạch sẽ cho tất cả người dùng"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.1.1/dio-talk-v1.1.1.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.1.2/dio-talk-v1.1.2.apk",
   "isMandatory": false
 }
