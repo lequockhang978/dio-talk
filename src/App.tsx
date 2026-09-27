@@ -249,6 +249,28 @@ const GoogleIcon = () => (
   </svg>
 );
 
+// Global one-time reset for all users: clean stale streak and vocab counts
+const GLOBAL_RESET_KEY = 'dio_reset_all_vocab_streak_v1';
+if (typeof window !== 'undefined') {
+  try {
+    if (localStorage.getItem(GLOBAL_RESET_KEY) !== 'done') {
+      localStorage.setItem(GLOBAL_RESET_KEY, 'done');
+      const raw = localStorage.getItem('dio_user_profile');
+      if (raw) {
+        const p = JSON.parse(raw);
+        p.streakDays = 0;
+        localStorage.setItem('dio_user_profile', JSON.stringify(p));
+      }
+      localStorage.setItem('dio_completed_today', '0');
+      localStorage.removeItem('dio_vocab_mastery_records');
+      localStorage.removeItem('dio_daily_study_protocol_history');
+      localStorage.removeItem('dio_cached_leaderboard');
+      localStorage.removeItem('dio_maritime_stars_nodes');
+      localStorage.removeItem('dio_lesson_sessions');
+    }
+  } catch (_) {}
+}
+
 export default function App() {
   // Navigation & Department Selection (Section 4 Master Plan)
   const [activeTab, setActiveTab] = useState<'home' | 'learn' | 'practice' | 'ai' | 'profile'>('home');
