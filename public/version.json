@@ -1,14 +1,15 @@
 {
-  "version": "1.1.2",
-  "versionCode": 112,
+  "version": "1.2.0",
+  "versionCode": 120,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.1.2 (Sửa lỗi 10 Sĩ quan AI, Microphone & Modal)",
+  "title": "Bản cập nhật Dio Talk v1.2.0 (Thuật toán SRS Siêu Xịn, Night Mode & Hiệu Ứng)",
   "changelog": [
-    "Tách riêng 10 Sĩ quan AI với chủ đề, kịch bản mở đầu và Prompt phản xạ chuẩn IMO STCW chuyên biệt",
-    "Sửa lỗi Micro đàm thoại: Cấp quyền Android tự động và xử lý bắt lỗi giọng nói chi tiết",
-    "Giao diện Modal Dio Talk tương phản cao: Khắc phục lỗi chữ trắng trên nền trắng của hệ thống",
-    "Reset toàn bộ chuỗi streak và từ vựng học thử về 0 sạch sẽ cho tất cả người dùng"
+    "Thuật toán lặp ngắt quãng SuperMemo SM-2 & Đường cong quên Ebbinghaus thời gian thực",
+    "Radar Trí nhớ Ebbinghaus trên Home: Theo dõi % lưu giữ và cảnh báo từ cần ôn khẩn cấp",
+    "Chế độ Night Bridge Mode (Buồng lái ban đêm) chuyên nghiệp chống mỏi mắt cho thuyền viên",
+    "Hiệu ứng pháo hoa Confetti 60fps và âm thanh hợp âm fanfare khi hoàn thành bài học",
+    "Nâng cấp bộ chấm điểm phản xạ thông minh AI & cơ chế Context-Aware offline engine"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.1.2/dio-talk-v1.1.2.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.2.0/dio-talk-v1.2.0.apk",
   "isMandatory": false
 }

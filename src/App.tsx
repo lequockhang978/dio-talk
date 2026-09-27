@@ -28,7 +28,9 @@ import {
   Bot,
   User,
   AlertTriangle,
-  Copy
+  Copy,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { COURSES, MARITIME_LESSON_NODES, MARITIME_10K_TERMS, generateInfiniteMaritimeNodes, getRankRequiredVocab, type Course, type Term, type LessonNode } from './data/courses';
 import { MARLINS_EXAM_DATA } from './data/marlins';
@@ -42,10 +44,13 @@ import {
   saveMasteryRecord,
   getStudyHistory,
   getMasteryRecords,
+  getFluencyStatus,
+  calculateRetentionScore,
   evaluateWithAI,
   type DailyStudySession,
   type AIEvaluationResult
 } from './data/daily_protocol';
+import { triggerConfetti } from './utils/confetti';
 import {
   signInWithGoogleFirebase,
   saveProfileToCloud,
@@ -341,6 +346,46 @@ export default function App() {
   const [selectedNode, setSelectedNode] = useState<LessonNode | null>(null);
   const [leaderboardMetric, setLeaderboardMetric] = useState<'streak' | 'vocab'>('streak');
 
+  // Intelligent STCW Career Progression Resolver
+  const applyTreeProgression = useCallback((nodes: LessonNode[], userRank?: string): LessonNode[] => {
+    const result = nodes.map(n => ({ ...n }));
+
+    // 1. Ensure first node of each department is always unlocked
+    const firstSeenDept = new Set<string>();
+    for (let i = 0; i < result.length; i++) {
+      if (!firstSeenDept.has(result[i].department)) {
+        result[i].isUnlocked = true;
+        firstSeenDept.add(result[i].department);
+      }
+    }
+
+    // 2. Chain progression: if node i is completed (stars > 0), node i+1 in same department MUST be unlocked
+    for (let i = 0; i < result.length; i++) {
+      if (result[i].stars > 0) {
+        const nextIdx = result.findIndex((n, idx) => idx > i && n.department === result[i].department);
+        if (nextIdx !== -1) {
+          result[nextIdx].isUnlocked = true;
+        }
+      }
+    }
+
+    // 3. User rank alignment: unlock first node of user's own STCW rank tier
+    if (userRank) {
+      const cleanRank = userRank.toLowerCase();
+      const rankFirstNode = result.find(n => 
+        n.rankTitle.toLowerCase().includes(cleanRank) || cleanRank.includes(n.rankTitle.toLowerCase())
+      );
+      if (rankFirstNode) {
+        const idx = result.findIndex(n => n.id === rankFirstNode.id);
+        if (idx !== -1) {
+          result[idx].isUnlocked = true;
+        }
+      }
+    }
+
+    return result;
+  }, []);
+
   // Career Path Lesson Nodes with LocalStorage Persistence & Infinite Extension
   const [skillTreeNodes, setSkillTreeNodes] = useState<LessonNode[]>(() => {
     try {
@@ -349,15 +394,31 @@ export default function App() {
       const unlockedMap = savedUnlocked ? JSON.parse(savedUnlocked) : {};
       const starsMap = savedStars ? JSON.parse(savedStars) : {};
 
-      return MARITIME_LESSON_NODES.map((node) => {
+      const mapped = MARITIME_LESSON_NODES.map((node) => {
         const isUnlocked = unlockedMap[node.id] !== undefined ? unlockedMap[node.id] : node.isUnlocked;
         const stars = starsMap[node.id] !== undefined ? starsMap[node.id] : node.stars;
         return { ...node, isUnlocked, stars };
       });
+
+      // Chain unlocked progression: if node 1, 2, 3 have stars, node 4 must be unlocked
+      const result = mapped.map(n => ({ ...n }));
+      for (let i = 0; i < result.length; i++) {
+        if (result[i].stars > 0) {
+          const nextIdx = result.findIndex((n, idx) => idx > i && n.department === result[i].department);
+          if (nextIdx !== -1) {
+            result[nextIdx].isUnlocked = true;
+          }
+        }
+      }
+      return result;
     } catch {
       return MARITIME_LESSON_NODES;
     }
   });
+
+  useEffect(() => {
+    setSkillTreeNodes(prev => applyTreeProgression(prev, userProfile.rank));
+  }, [userProfile.rank, applyTreeProgression]);
 
   // Per-Node In-Progress Session (Auto-resumes at current word on reopen)
   const [lessonSessions, setLessonSessions] = useState<Record<string, number>>(() => {
@@ -408,7 +469,7 @@ export default function App() {
       // Find next node in same department
       const nextNodeIdx = prev.findIndex((n, idx) => idx > currentIdx && n.department === targetDept);
 
-      const updated = prev.map((n, idx) => {
+      const rawUpdated = prev.map((n, idx) => {
         if (idx === currentIdx) {
           return { ...n, isUnlocked: true, stars: Math.max(n.stars, 3) };
         }
@@ -417,6 +478,8 @@ export default function App() {
         }
         return n;
       });
+
+      const updated = applyTreeProgression(rawUpdated, userProfile.rank);
 
       // Save to localStorage & Cloud
       const unlockedIds: string[] = [];
@@ -507,10 +570,22 @@ export default function App() {
     if (!currentTerm) return;
 
     let deltaDots = 1;
-    if (rating === 'again') deltaDots = 0;
-    else if (rating === 'hard') deltaDots = 1;
-    else if (rating === 'good') deltaDots = 2;
-    else if (rating === 'easy') deltaDots = 3;
+    let srsGrade: 0 | 2 | 4 | 5 = 4;
+    if (rating === 'again') {
+      deltaDots = 0;
+      srsGrade = 0;
+    } else if (rating === 'hard') {
+      deltaDots = 1;
+      srsGrade = 2;
+    } else if (rating === 'good') {
+      deltaDots = 2;
+      srsGrade = 4;
+    } else if (rating === 'easy') {
+      deltaDots = 3;
+      srsGrade = 5;
+    }
+
+    saveMasteryRecord(currentTerm.id, currentTerm.word, srsGrade >= 3, srsGrade);
 
     setTermsState(prev => prev.map((t, idx) => {
       if (idx === vocabIndex) {
@@ -571,6 +646,8 @@ export default function App() {
       setDuelIsChecked(false);
     } else {
       setDuelFinished(true);
+      triggerConfetti(3000);
+      soundService.playCelebrationFanfare();
       if (selectedGame) {
         setCompletedGames(prev => {
           if (!prev.includes(selectedGame.id)) {
@@ -854,7 +931,7 @@ export default function App() {
         const starsMap = cloud.starsMap || {};
         const recoveredVocab = cloud.masteredWords?.length || 0;
 
-        const updated = prev.map((node, nIdx) => {
+        const rawUpdated = prev.map((node, nIdx) => {
           const autoUnlock = recoveredVocab > 0 && nIdx <= Math.ceil(recoveredVocab / 4);
           const isUnlocked = unlockedSet.has(node.id) || autoUnlock || node.isUnlocked;
           const stars = starsMap[node.id] !== undefined
@@ -862,6 +939,8 @@ export default function App() {
             : (autoUnlock && nIdx < Math.ceil(recoveredVocab / 4) ? 3 : node.stars);
           return { ...node, isUnlocked, stars };
         });
+
+        const updated = applyTreeProgression(rawUpdated, cloud.rank || userProfile.rank);
 
         try {
           const saveUnlocked: Record<string, boolean> = {};
@@ -968,8 +1047,23 @@ export default function App() {
       setAuthenticatedUid(gUser.uid);
       setIsLoggedIn(true);
       await restoreProgressFromCloud(gUser.uid);
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Google Sign-In failed:', err);
+      let msg = 'Đăng nhập không thành công.';
+      if (err?.code === 'auth/unauthorized-domain') {
+        msg = 'Tên miền IP (127.0.0.1) chưa được thêm vào Firebase. Vui lòng mở trang web bằng địa chỉ: http://localhost:5173/';
+      } else if (err?.code === 'auth/popup-blocked') {
+        msg = 'Trình duyệt đang chặn popup đăng nhập Google. Vui lòng bật "Cho phép popup" trên thanh địa chỉ.';
+      } else if (err?.code === 'auth/popup-closed-by-user') {
+        msg = 'Cửa sổ đăng nhập Google đã bị đóng.';
+      } else if (err?.message) {
+        msg = `Lỗi: ${err.message}`;
+      }
+      setCustomAlert({
+        title: 'Đăng Nhập Google',
+        message: msg,
+        icon: 'info'
+      });
     } finally {
       setIsGoogleLoading(false);
     }
@@ -1277,7 +1371,7 @@ export default function App() {
   const [dailyAiResult, setDailyAiResult] = useState<AIEvaluationResult | null>(null);
 
   const launchDaily25Protocol = (mode: 'auto' | 'fluency_drill' | 'new_words' = 'auto') => {
-    const session = generateDaily25Session(currentDepartment, 5, mode);
+    const session = generateDaily25Session(currentDepartment, 5, mode, currentCourse?.terms);
     setDailySession(session);
     setDailyQIdx(0);
     setDailyInput('');
@@ -1295,6 +1389,7 @@ export default function App() {
     if (!curQ) return;
 
     let isCorrect = false;
+    let evalQualityGrade: number | undefined;
     if (curQ.questionType === 'cloze') {
       const cleanInput = (selectedOrInput || dailyInput).trim();
       const aiEval = evaluateWithAI(cleanInput, curQ.correctAnswer, {
@@ -1303,13 +1398,15 @@ export default function App() {
       });
       setDailyAiResult(aiEval);
       isCorrect = aiEval.isCorrect;
+      evalQualityGrade = aiEval.qualityGrade;
     } else {
       isCorrect = selectedOrInput?.toLowerCase() === curQ.correctAnswer.toLowerCase();
+      evalQualityGrade = isCorrect ? 4 : 1;
       setDailySelectedOpt(selectedOrInput || null);
     }
 
     setDailyIsChecked(true);
-    saveMasteryRecord(curQ.termId, curQ.targetWord, isCorrect);
+    saveMasteryRecord(curQ.termId, curQ.targetWord, isCorrect, evalQualityGrade as any);
 
     if (isCorrect) {
       setDailyScore(prev => prev + 1);
@@ -1334,6 +1431,8 @@ export default function App() {
       setDailyAiResult(null);
     } else {
       setDailyFinished(true);
+      triggerConfetti(3500);
+      soundService.playCelebrationFanfare();
       // Save day's learned & reviewed terms to persistent study history
       saveStudyHistory(dailySession.newTermIds, dailySession.dateKey, [...dailySession.newTermIds, ...dailySession.reviewTermIds]);
       if (selectedNode) {
@@ -1355,7 +1454,7 @@ export default function App() {
     setFlashcardAiResult(evalResult);
 
     if (evalResult.isCorrect) {
-      saveMasteryRecord(term.id, term.word, true);
+      saveMasteryRecord(term.id, term.word, true, (evalResult.qualityGrade ?? 4) as any);
       setUserProfile(prev => ({
         ...prev,
         xp: prev.xp + 15,
@@ -1368,7 +1467,7 @@ export default function App() {
         saveNodeSession(selectedNode.id, nextTarget);
       }
     } else {
-      saveMasteryRecord(term.id, term.word, false);
+      saveMasteryRecord(term.id, term.word, false, (evalResult.qualityGrade ?? 1) as any);
     }
   };
 
@@ -1406,11 +1505,21 @@ export default function App() {
   // Settings State
   const [apiKey] = useState<string>(() => localStorage.getItem('peaktalk_apikey') || DEFAULT_API_KEY);
   const [apiUrl] = useState<string>(() => localStorage.getItem('peaktalk_apiurl') || DEFAULT_API_URL);
+  const [nightMode, setNightMode] = useState<boolean>(() => localStorage.getItem('dio_night_bridge_mode') === 'true');
   const [apiModel, setApiModel] = useState<string>(() => {
     const saved = localStorage.getItem('peaktalk_apimodel');
     if (!saved || saved === 'imgxh/roleplay') return DEFAULT_MODEL; // Ưu tiên server-6
     return saved;
   });
+
+  const toggleNightMode = () => {
+    setNightMode(prev => {
+      const next = !prev;
+      localStorage.setItem('dio_night_bridge_mode', String(next));
+      soundService.vibrate(30);
+      return next;
+    });
+  };
 
   // AI Model Selection Modal States
   const [showModelModal, setShowModelModal] = useState<boolean>(false);
@@ -1464,7 +1573,7 @@ export default function App() {
         setCustomAlert({
           title: 'Cập Nhật Ứng Dụng',
           message: `Bạn đang sử dụng phiên bản mới nhất (${CURRENT_VERSION_TAG})!\nKhông có bản cập nhật nào.`,
-          icon: 'shield-check'
+          icon: 'security-shield'
         });
       }
     } catch (e: any) {
@@ -1532,9 +1641,42 @@ export default function App() {
     const textToSend = voiceInput || inputText;
     if (!textToSend.trim()) return;
 
-    const wordCount = textToSend.trim().split(/\s+/).length;
-    // ponytail: transcript-only score; upgrade to native phoneme analysis when available.
-    const calculatedScore = Math.min(100, Math.max(0, wordCount * 10));
+    const cleanInput = textToSend.trim().toLowerCase();
+    const words = cleanInput.split(/\s+/).filter(Boolean);
+
+    // INTELLIGENT MARITIME RELEVANCY & ACTIVE VOCABULARY SCORING
+    // Check if input is empty, repetitive spam, or actual maritime response
+    const isSpam = words.length > 3 && new Set(words).size === 1; // e.g. "hello hello hello..."
+    
+    // Domain keywords check (marine, engineering, navigation, safety, alarms, valves, pressure...)
+    const MARITIME_KEYWORDS = [
+      'alarm', 'alarms', 'leak', 'fuel', 'generator', 'engine', 'pressure', 'temperature', 'valve', 'pump',
+      'bilge', 'oil', 'scavenge', 'manifold', 'cylinder', 'exhaust', 'bearing', 'cooler', 'filter', 'purifier',
+      'rudder', 'bridge', 'captain', 'chief', 'officer', 'motorman', 'vts', 'port', 'starboard', 'bow', 'stern',
+      'anchor', 'berth', 'course', 'speed', 'knots', 'degrees', 'heading', 'compass', 'radar', 'ecdis', 'vhf',
+      'channel', 'mayday', 'pan pan', 'securite', 'draft', 'ballast', 'fire', 'emergency', 'stop', 'start',
+      'check', 'inspect', 'checked', 'inspected', 'isolated', 'shut', 'closed', 'opened', 'cleared', 'reported',
+      'sir', 'understood', 'roger', 'acknowledge', 'standby', 'affirmative', 'negative'
+    ];
+
+    let matchedKeywordCount = 0;
+    words.forEach(w => {
+      if (MARITIME_KEYWORDS.some(kw => w.includes(kw) || kw.includes(w))) {
+        matchedKeywordCount++;
+      }
+    });
+
+    let calculatedScore: number;
+    if (isSpam) {
+      calculatedScore = 15; // Penalize repetitive words
+    } else if (matchedKeywordCount > 0) {
+      // High score for maritime contextually relevant responses
+      calculatedScore = Math.min(100, 50 + matchedKeywordCount * 15 + Math.min(25, words.length * 5));
+    } else if (words.length <= 2) {
+      calculatedScore = 30; // Very brief without technical term
+    } else {
+      calculatedScore = Math.min(75, Math.max(35, words.length * 8));
+    }
 
     const nextMessages = [...speakingMessages, { role: 'user' as const, text: textToSend, score: calculatedScore }];
     setSpeakingMessages(nextMessages);
@@ -1547,10 +1689,13 @@ export default function App() {
     setAccuracyScore(prev => Math.round((prev + calculatedScore) / 2));
 
     const activePrompt = speakingSystemPromptRef.current || activeSpeakingOfficer?.systemPrompt || currentCourse.systemPrompt;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout limit
 
     try {
       const response = await fetch(apiUrl, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
@@ -1563,9 +1708,17 @@ export default function App() {
           ]
         })
       });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Máy chủ AI phản hồi lỗi HTTP ${response.status}`);
+      }
 
       const data = await response.json();
-      const rawContent = data.choices?.[0]?.message?.content || 'Understood, keep up the practice.';
+      const rawContent = data.choices?.[0]?.message?.content;
+      if (!rawContent || !rawContent.trim()) {
+        throw new Error('Nội dung phản hồi từ AI trống');
+      }
 
       let replySpeech = rawContent;
       let feedbackNote: string | undefined = undefined;
@@ -1588,22 +1741,40 @@ export default function App() {
 
       speakText(replySpeech);
     } catch (err: any) {
-      // Offline Sea Voyage Fallback: Standard STCW maritime responses
+      clearTimeout(timeoutId);
+      console.warn('[AI Speaking] API Request failed, switching to contextual maritime engine:', err);
+
+      // Smart Context-Aware Maritime Response Engine
       const partner = activeSpeakingOfficer?.role || currentCourse.partnerRole || 'Sĩ quan';
-      const offlineReplies = [
-        `Understood, motorman. Report received clearly. Maintain standard operating parameters and log in the engine logbook.`,
-        `Good report. Keep monitoring the gauge pressure and verify auxiliary system operation.`,
-        `Roger that. Proceed with the routine STCW checklist and advise bridge if any deviation occurs.`,
-        `Acknowledge. Ensure all safety interlocks are verified before continuing operations.`
-      ];
-      const randomReply = offlineReplies[Math.floor(Math.random() * offlineReplies.length)];
+      let contextualReply = '';
+      let contextualFeedback = '';
+
+      if (isSpam) {
+        contextualReply = `Negative, motorman! Repeat your message clearly using standard maritime terminology. Do not repeat words on the comms line.`;
+        contextualFeedback = `⚠️ Cảnh báo: Sử dụng thuật ngữ IMO SMCP chuẩn, tránh lặp từ vô nghĩa ("${textToSend}").`;
+      } else if (cleanInput.includes('alarm') || cleanInput.includes('leak')) {
+        contextualReply = `Acknowledge alarms. Isolate the high-pressure fuel line immediately and switch to the auxiliary fuel booster pump. Report the pressure reading.`;
+        contextualFeedback = `🎯 Phản xạ tốt! Đã nhận diện đúng tình huống cảnh báo (${matchedKeywordCount} từ chuyên ngành). Tiếp tục báo cáo thông số áp suất.`;
+      } else if (cleanInput.includes('check') || cleanInput.includes('inspect') || cleanInput.includes('stop')) {
+        contextualReply = `Good initiative. Make sure you wear protective gear and tag out the breaker before inspection. Stand by for my visual check.`;
+        contextualFeedback = `👍 Chuẩn quy trình an toàn STCW: Luôn gắn biển cảnh báo (tag out) và trang bị BHLĐ trước khi thao tác.`;
+      } else if (matchedKeywordCount > 0) {
+        contextualReply = `Understood. Proceed with standard troubleshooting as logged. Keep the watch alert and report any parameter drift.`;
+        contextualFeedback = `✅ Thuật ngữ phù hợp. Cần bổ sung thêm số liệu cụ thể (nhiệt độ, áp suất) để báo cáo chuyên nghiệp hơn.`;
+      } else {
+        contextualReply = `Copy that. Please specify the equipment tag and current operating values according to the engine log.`;
+        contextualFeedback = `💡 Gợi ý phản xạ: Hãy sử dụng các từ khóa hành động: "I have checked...", "Fuel valve is isolated", "Pressure is normal".`;
+      }
+
+      const isNetworkIssue = err?.name === 'AbortError' || err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError');
+      const networkNotice = isNetworkIssue ? ' [Ngoại tuyến / Mạng lag]' : '';
 
       setSpeakingMessages([...nextMessages, {
         role: 'assistant',
-        text: randomReply,
-        feedback: `⚓ [Hải trình Ngoại tuyến] ${partner} phản hồi theo kịch bản chuẩn IMO STCW.`
+        text: contextualReply,
+        feedback: `⚓ [${partner}${networkNotice}]: ${contextualFeedback}`
       }]);
-      speakText(randomReply);
+      speakText(contextualReply);
     } finally {
       setAiLoading(false);
     }
@@ -1625,23 +1796,6 @@ export default function App() {
       if (speechRecognitionRef.current) {
         try { speechRecognitionRef.current.stop(); } catch { }
       }
-      setIsRecording(false);
-      return;
-    }
-
-    // Explicitly prompt Android / Browser for Audio Record Permission
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
-      }
-    } catch (permErr: any) {
-      console.warn('Microphone permission check error:', permErr);
-      setCustomAlert({
-        title: 'Cần cấp quyền Micro',
-        message: 'Vui lòng cho phép quyền truy cập Micro trong Cài đặt ứng dụng trên điện thoại để nói chuyện cùng Sĩ quan AI.',
-        icon: 'mic'
-      });
       setIsRecording(false);
       return;
     }
@@ -1679,23 +1833,23 @@ export default function App() {
         console.warn('Speech recognition error:', err);
         setIsRecording(false);
         const errType = err?.error;
+        // Ignore aborted or no-speech without showing popup
+        if (errType === 'no-speech' || errType === 'aborted') {
+          return;
+        }
         let errMsg = 'Không thể thu âm giọng nói.';
         if (errType === 'not-allowed') {
-          errMsg = 'Quyền Micro bị từ chối trong Cài đặt thiết bị. Vui lòng vào Cài đặt > Ứng dụng > Dio Talk > Quyền > Cho phép Microphone.';
-        } else if (errType === 'no-speech') {
-          errMsg = 'Chưa nhận diện được giọng nói. Bạn hãy nói to và rõ hơn gần mic của máy nhé.';
+          errMsg = 'Quyền Micro bị từ chối. Vui lòng cho phép quyền truy cập Micro trên trình duyệt/thiết bị.';
         } else if (errType === 'network') {
-          errMsg = 'Lỗi kết nối dịch vụ Google Speech (cần có kết nối Internet). Bạn có thể gõ câu trả lời vào ô nhắn tin.';
+          errMsg = 'Lỗi kết nối dịch vụ nhận diện giọng nói (cần có Internet). Bạn có thể gõ câu trả lời vào ô nhắn tin.';
         } else if (errType === 'audio-capture') {
-          errMsg = 'Không tìm thấy thiết bị thu âm Microphone.';
+          errMsg = 'Không tìm thấy hoặc không thể mở thiết bị thu âm Microphone.';
         }
-        if (errType !== 'no-speech') {
-          setCustomAlert({
-            title: 'Trạng thái Micro',
-            message: errMsg,
-            icon: 'mic'
-          });
-        }
+        setCustomAlert({
+          title: 'Trạng thái Micro',
+          message: errMsg,
+          icon: 'mic'
+        });
       };
 
       recognition.onend = () => {
@@ -1874,6 +2028,7 @@ export default function App() {
       setCompletedToday(prev => prev + 1);
       setAccuracyScore(prev => Math.min(100, prev + 1));
       setTermsState(prev => prev.map((t, idx) => idx === vocabIndex ? { ...t, dots: Math.min(5, t.dots + 1), mastered: true } : t));
+      saveMasteryRecord(currentTerm.id, currentTerm.word, true, 4);
       if (!isMuted) {
         speakText(currentTerm.word);
       }
@@ -1883,6 +2038,7 @@ export default function App() {
       }
     } else {
       setVocabStatus('wrong');
+      saveMasteryRecord(currentTerm.id, currentTerm.word, false, 1);
     }
   };
 
@@ -1932,13 +2088,6 @@ export default function App() {
       setVocabRecording(false);
       return;
     }
-
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(track => track.stop());
-      }
-    } catch (_) { }
 
     try {
       const recognition = new SpeechRec();
@@ -2113,7 +2262,7 @@ export default function App() {
 
   return (
     <>
-      <div className={`peaktalk-content ${activeMode !== 'none' ? 'fullscreen-lesson' : ''}`}>
+      <div className={`peaktalk-content ${activeMode !== 'none' ? 'fullscreen-lesson' : ''} ${nightMode ? 'night-bridge-mode' : ''}`}>
         {/* ========================================================================= */}
         {/* MODE 1: ACTIVE SPEAKING SESSION                                          */}
         {/* ========================================================================= */}
@@ -2464,9 +2613,27 @@ export default function App() {
                         <div className="flashcard-face-3d front">
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                              <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563EB', background: '#EFF6FF', padding: '5px 12px', borderRadius: 10, letterSpacing: '0.5px', border: '1px solid #BFDBFE' }}>
-                                MẶT TRƯỚC • THUẬT NGỮ HÀNG HẢI
-                              </span>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563EB', background: '#EFF6FF', padding: '5px 12px', borderRadius: 10, letterSpacing: '0.5px', border: '1px solid #BFDBFE' }}>
+                                  MẶT TRƯỚC • THUẬT NGỮ HÀNG HẢI
+                                </span>
+                                {(() => {
+                                  const term = currentCourse.terms[vocabIndex];
+                                  if (!term) return null;
+                                  const rec = getMasteryRecords()[term.id];
+                                  const ret = rec ? calculateRetentionScore(rec.lastReviewed, rec.intervalDays || 1) : 100;
+                                  const badgeColor = ret >= 80 ? '#16A34A' : ret >= 50 ? '#D97706' : '#DC2626';
+                                  const badgeBg = ret >= 80 ? '#F0FDF4' : ret >= 50 ? '#FFFBEB' : '#FEF2F2';
+                                  return (
+                                    <span
+                                      title={`Độ bền trí nhớ Ebbinghaus: ${ret}%. Khoảng cách ôn tiếp theo: ${rec?.intervalDays || 1} ngày`}
+                                      style={{ fontSize: '0.72rem', fontWeight: 800, color: badgeColor, background: badgeBg, padding: '5px 8px', borderRadius: 10, border: `1px solid ${badgeColor}33`, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                    >
+                                      🧠 {ret}% trí nhớ
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2868,9 +3035,25 @@ export default function App() {
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
                 {/* Meta indicator */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span className={`daily-q-type-badge ${dailySession.questions[dailyQIdx].isReview ? 'review' : 'new'}`}>
-                    {dailySession.questions[dailyQIdx].isReview ? '🔄 TỪ KHÓ ĐÃ HỌC (ÔN TẬP)' : '⭐ TỪ MỚI HÔM NAY'}
-                  </span>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span className={`daily-q-type-badge ${dailySession.questions[dailyQIdx].isReview ? 'review' : 'new'}`}>
+                      {dailySession.questions[dailyQIdx].isReview ? '🔄 TỪ KHÓ ĐÃ HỌC (ÔN TẬP)' : '⭐ TỪ MỚI HÔM NAY'}
+                    </span>
+                    {(() => {
+                      const q = dailySession.questions[dailyQIdx];
+                      const rec = getMasteryRecords()[q.termId];
+                      if (!rec) return null;
+                      const ret = calculateRetentionScore(rec.lastReviewed, rec.intervalDays || 1);
+                      return (
+                        <span
+                          title={`Khoảng cách ôn tiếp: ${rec.intervalDays || 1} ngày`}
+                          style={{ fontSize: '0.72rem', fontWeight: 800, color: '#0369A1', background: '#E0F2FE', padding: '4px 8px', borderRadius: 8 }}
+                        >
+                          🧠 {ret}% nhớ
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#475569' }}>
                     Câu {dailyQIdx + 1} / {dailySession.totalQuestions}
                   </span>
@@ -3554,6 +3737,26 @@ export default function App() {
                       <Sticker3D name="gem" size={20} />
                       <span>{userProfile.xp}</span>
                     </div>
+
+                    {/* NIGHT BRIDGE MODE TOGGLE BUTTON */}
+                    <button
+                      onClick={toggleNightMode}
+                      className="dio-stat-pill theme-toggle"
+                      style={{
+                        background: nightMode ? '#1E293B' : '#EFF6FF',
+                        border: nightMode ? '1px solid #334155' : '1px solid #BFDBFE',
+                        color: nightMode ? '#FBBF24' : '#2563EB',
+                        cursor: 'pointer',
+                        padding: '6px 8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 14
+                      }}
+                      title={nightMode ? 'Chuyển sang Chế độ Ban ngày' : 'Bật Chế độ Ban đêm (Night Bridge Mode)'}
+                    >
+                      {nightMode ? <Sun size={17} /> : <Moon size={17} />}
+                    </button>
                   </div>
                 </div>
 
@@ -3620,6 +3823,110 @@ export default function App() {
                     <span style={{ color: '#2563EB', fontWeight: 700 }}>Chi tiết bậc thang ❯</span>
                   </div>
                 </div>
+
+                {/* EBBINGHAUS MEMORY RETENTION RADAR WIDGET */}
+                {(() => {
+                  const fluency = getFluencyStatus();
+                  return (
+                    <div
+                      style={{
+                        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+                        borderRadius: 18,
+                        padding: '16px',
+                        margin: '14px 0',
+                        color: 'white',
+                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <span style={{ fontSize: '1rem' }}>🧠</span>
+                            <span style={{ fontSize: '0.86rem', fontWeight: 800, letterSpacing: '0.3px', color: '#F8FAFC' }}>
+                              RADAR TRÍ NHỚ EBBINGHAUS
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                            Đo lường độ bền trí nhớ dài hạn thời gian thực
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '1.25rem', fontWeight: 900, color: fluency.averageRetention >= 80 ? '#4ADE80' : fluency.averageRetention >= 60 ? '#FBBF24' : '#F87171' }}>
+                            {fluency.averageRetention}%
+                          </span>
+                          <div style={{ fontSize: '0.66rem', color: '#CBD5E1', fontWeight: 700 }}>Độ lưu giữ</div>
+                        </div>
+                      </div>
+
+                      {/* Retention Gauge Bar */}
+                      <div style={{ height: 8, borderRadius: 99, background: 'rgba(255, 255, 255, 0.12)', overflow: 'hidden', marginBottom: 12 }}>
+                        <div
+                          style={{
+                            height: '100%',
+                            width: `${fluency.averageRetention}%`,
+                            background: fluency.averageRetention >= 80
+                              ? 'linear-gradient(90deg, #10B981, #34D399)'
+                              : fluency.averageRetention >= 60
+                                ? 'linear-gradient(90deg, #F59E0B, #FBBF24)'
+                                : 'linear-gradient(90deg, #EF4444, #F87171)',
+                            borderRadius: 99,
+                            transition: 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                          }}
+                        />
+                      </div>
+
+                      {/* 3 Metric Pills */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '8px 10px', textAlign: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#38BDF8' }}>{fluency.totalLearned}</div>
+                          <div style={{ fontSize: '0.64rem', color: '#94A3B8' }}>Đã nạp</div>
+                        </div>
+
+                        <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '8px 10px', textAlign: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#4ADE80' }}>{fluency.masteredCount}</div>
+                          <div style={{ fontSize: '0.64rem', color: '#94A3B8' }}>Thuộc làu</div>
+                        </div>
+
+                        <div style={{ background: fluency.dueTodayCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '8px 10px', textAlign: 'center', border: fluency.dueTodayCount > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)' }}>
+                          <div style={{ fontSize: '1rem', fontWeight: 800, color: fluency.dueTodayCount > 0 ? '#F87171' : '#E2E8F0' }}>
+                            {fluency.dueTodayCount}
+                          </div>
+                          <div style={{ fontSize: '0.64rem', color: fluency.dueTodayCount > 0 ? '#FCA5A5' : '#94A3B8', fontWeight: fluency.dueTodayCount > 0 ? 700 : 400 }}>
+                            {fluency.dueTodayCount > 0 ? '⚠️ Cần ôn ngay' : 'Đến hạn hôm nay'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Prompt */}
+                      {fluency.dueTodayCount > 0 && (
+                        <button
+                          onClick={() => launchDaily25Protocol()}
+                          style={{
+                            width: '100%',
+                            marginTop: 12,
+                            padding: '10px 14px',
+                            background: 'linear-gradient(90deg, #2563EB, #1D4ED8)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 12,
+                            fontSize: '0.78rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 6,
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(37, 99, 235, 0.35)'
+                          }}
+                        >
+                          <span>⚡ Khởi động phiên giải cứu {fluency.dueTodayCount} từ đến hạn</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* DEPARTMENT SWITCHER: BAN MÁY VS BAN BOONG */}
                 <div className="dio-dept-switch">
@@ -3803,7 +4110,15 @@ export default function App() {
                         {Array.from(new Set(skillTreeNodes.filter(n => n.department === currentDepartment).map(n => n.rankTitle))).map(rankTitle => {
                           const rankNodes = skillTreeNodes.filter(n => n.department === currentDepartment && n.rankTitle === rankTitle);
                           const reqVocab = getRankRequiredVocab(rankTitle);
-                          const isGated = reqVocab > 0 && completedDeptTerms < reqVocab;
+                          const userRank = userProfile.rank || '';
+                          const isUserRankOrLower = userRank && (
+                            rankTitle.toLowerCase().includes(userRank.toLowerCase()) || 
+                            userRank.toLowerCase().includes(rankTitle.toLowerCase()) ||
+                            (userRank.includes('Motorman') && rankTitle.includes('Wiper')) ||
+                            (userRank.includes('Thợ máy') && rankTitle.includes('Lau máy')) ||
+                            (userRank.includes('Thủy thủ') && rankTitle.includes('Học viên'))
+                          );
+                          const isGated = !isUserRankOrLower && reqVocab > 0 && completedDeptTerms < reqVocab;
 
                           return (
                             <div key={rankTitle} style={{ width: '100%', marginBottom: 16 }}>
@@ -4289,7 +4604,15 @@ export default function App() {
                             {Array.from(new Set(skillTreeNodes.filter(n => n.department === currentDepartment).map(n => n.rankTitle))).map(rankTitle => {
                               const rankNodes = skillTreeNodes.filter(n => n.department === currentDepartment && n.rankTitle === rankTitle);
                               const reqVocab = getRankRequiredVocab(rankTitle);
-                              const isGated = reqVocab > 0 && completedDeptTerms < reqVocab;
+                              const userRank = userProfile.rank || '';
+                              const isUserRankOrLower = userRank && (
+                                rankTitle.toLowerCase().includes(userRank.toLowerCase()) || 
+                                userRank.toLowerCase().includes(rankTitle.toLowerCase()) ||
+                                (userRank.includes('Motorman') && rankTitle.includes('Wiper')) ||
+                                (userRank.includes('Thợ máy') && rankTitle.includes('Lau máy')) ||
+                                (userRank.includes('Thủy thủ') && rankTitle.includes('Học viên'))
+                              );
+                              const isGated = !isUserRankOrLower && reqVocab > 0 && completedDeptTerms < reqVocab;
 
                               return (
                                 <div key={rankTitle} style={{ width: '100%', marginBottom: 16 }}>
@@ -4892,7 +5215,7 @@ export default function App() {
                       title: 'Thuyền trưởng tàu mẹ (Shipmaster / Captain)',
                       role: 'Captain',
                       desc: 'Giao ban hàng hải, xử lý tình huống tránh va và thời tiết biển động cấp 8',
-                      icon: '🧑‍✈️',
+                      icon: '👨‍✈️',
                       tag: 'Command',
                       initialDialogue: 'Officer of the watch, the barometer is falling sharply and a crossing vessel on our starboard bow is at CPA zero decimal two miles. What are your immediate actions under COLREGs?',
                       systemPrompt: 'You are the Captain on an ocean voyage. Test the crew on COLREGs collision avoidance, bad weather seamanship, and bridge watch handover. Converse in precise maritime English and provide Vietnamese feedback.'
@@ -5256,9 +5579,21 @@ export default function App() {
                                       fontWeight: 800,
                                       fontSize: '0.95rem',
                                       flexShrink: 0,
-                                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                      overflow: 'hidden'
                                     }}>
-                                      {item.avatar || item.name.charAt(0).toUpperCase()}
+                                      {item.avatar && (item.avatar.startsWith('http://') || item.avatar.startsWith('https://') || item.avatar.startsWith('data:')) ? (
+                                        <img
+                                          src={item.avatar}
+                                          alt={item.name}
+                                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          onError={(e) => {
+                                            (e.currentTarget as HTMLElement).style.display = 'none';
+                                          }}
+                                        />
+                                      ) : (
+                                        item.avatar && item.avatar.length <= 3 ? item.avatar : item.name.charAt(0).toUpperCase()
+                                      )}
                                     </div>
 
                                     <div>
@@ -5319,7 +5654,7 @@ export default function App() {
                 {/* App Settings List */}
                 <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: 10, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 7 }}>
                   <Sticker3D name="gear" size={20} />
-                  <span>Cài Đặt Ứng Dụng:</span>
+                  <span>Cài Đặt Ứng Dụng</span>
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
                   {/* Danh Mục Model AI Khả Dụng */}

@@ -105,6 +105,12 @@ const EMOJI_MAP: Record<string, StickerName> = {
   '🛎': 'bell',
   '🗺️': 'compass',
   '🗺': 'compass',
+  '🧑‍✈️': 'chief-engineer',
+  '👨‍✈': 'chief-engineer',
+  'shield-check': 'security-shield',
+  'check-shield': 'security-shield',
+  'security': 'security-shield',
+  'shield': 'security-shield',
   'lightning': 'silver-lightning'
 };
 
