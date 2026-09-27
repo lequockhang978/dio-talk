@@ -1715,7 +1715,7 @@ export default function App() {
         {/* MODE 1: ACTIVE SPEAKING SESSION                                          */}
         {/* ========================================================================= */}
         {activeMode === 'speaking' && (
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', maxHeight: 780 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, flex: 1 }}>
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'white', borderRadius: 20, marginBottom: 14, boxShadow: 'var(--shadow-card)' }}>
               <button

@@ -26,8 +26,8 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Ensure status bar & navigation bar do not overlap web content
-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+
+        // System bars light appearance and background
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             getWindow().setStatusBarColor(android.graphics.Color.parseColor("#F5F7FA"));
             androidx.core.view.WindowInsetsControllerCompat insetsController = 
@@ -35,10 +35,27 @@ public class MainActivity extends BridgeActivity {
             if (insetsController != null) {
                 insetsController.setAppearanceLightStatusBars(true);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    getWindow().setNavigationBarColor(android.graphics.Color.parseColor("#FFFFFF"));
                     insetsController.setAppearanceLightNavigationBars(true);
                 }
             }
         }
+
+        // Ensure window content is padded by system insets (status bar, notch cutout, navigation bar)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        View contentView = findViewById(android.R.id.content);
+        if (contentView != null) {
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(contentView, (v, windowInsets) -> {
+                androidx.core.graphics.Insets insets = windowInsets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.systemBars() | 
+                    androidx.core.view.WindowInsetsCompat.Type.displayCutout()
+                );
+                v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+                return windowInsets;
+            });
+            androidx.core.view.ViewCompat.requestApplyInsets(contentView);
+        }
+
         requestRequiredPermissions();
     }
 
