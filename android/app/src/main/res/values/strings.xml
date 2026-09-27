@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">PeakTalk</string>
-    <string name="title_activity_main">PeakTalk</string>
+    <string name="app_name">Dio Talk</string>
+    <string name="title_activity_main">Dio Talk</string>
     <string name="package_name">com.peaktalk.pro</string>
     <string name="custom_url_scheme">com.peaktalk.pro</string>
 </resources>

@@ -264,8 +264,8 @@ export const ADDITIONAL_ENGINE_NODES: LessonNode[] = [
         prompt: 'Giẻ lau dính dầu mỡ trong buồng máy bắt buộc phải được bỏ vào đâu theo quy định an toàn?',
         word: 'closed metal bin',
         phonetic: '/kləʊzd ˈmetl bɪn/',
-        correctAnswer: 'Thùng kim loại có nắp đậy kín',
-        options: ['Thùng kim loại có nắp đậy kín', 'Góc sàn buồng máy', 'Rãnh la-gông máy chính', 'Túi nilông rác sinh hoạt'],
+        correctAnswer: 'closed metal bin',
+        options: ['closed metal bin', 'engine bilge well', 'open deck plates', 'domestic waste bag'],
         explanation: 'Oily cotton rags phải chứa trong thùng kim loại nắp đậy kín (closed metal bin) để chống cháy tự phát.'
       }
     ],
@@ -528,15 +528,15 @@ export const ADDITIONAL_DECK_NODES: LessonNode[] = [
     quizzes: [
       {
         id: 'q-dco-1',
-        prompt: 'Nếu giá trị GM (Metacentric Height) của tàu bị âm (negative GM), hiện tượng nguy hiểm nào sẽ xảy ra?',
+        prompt: 'What critical danger occurs if a ship has a negative metacentric height (Negative GM)?',
         word: 'Negative GM',
         phonetic: '/ˈneɡ.ə.tɪv dʒiː em/',
         correctAnswer: 'Tàu mất ổn định và có nguy cơ lật úp (Capsize)',
         options: [
           'Tàu mất ổn định và có nguy cơ lật úp (Capsize)',
-          'Tàu tăng tốc độ nhanh hơn',
+          'Tàu tăng tốc độ hành trình',
           'Chân vịt quay êm hơn',
-          'Giảm tiêu hao dầu nhiên liệu'
+          'Giảm tiêu hao nhiên liệu máy chính'
         ],
         explanation: 'GM âm khiến tàu mất mô-men hồi phục, dễ bị nghiêng vĩnh viễn hoặc lật chìm khi có ngoại lực.'
       }

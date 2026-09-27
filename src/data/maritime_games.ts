@@ -973,10 +973,23 @@ export const GAME_SPECIFIC_QUESTIONS: Record<string, DuelQuestion[]> = {
   ]
 };
 
-export const getQuestionsForGame = (gameId: string): DuelQuestion[] => {
-  if (GAME_SPECIFIC_QUESTIONS[gameId] && GAME_SPECIFIC_QUESTIONS[gameId].length > 0) {
-    return GAME_SPECIFIC_QUESTIONS[gameId];
+const shuffleArray = <T>(array: T[]): T[] => {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return GAME_SPECIFIC_QUESTIONS['game-1-duel'] || SAMPLE_DUEL_QUESTIONS;
+  return arr;
+};
+
+export const getQuestionsForGame = (gameId: string): DuelQuestion[] => {
+  const baseQuestions = (GAME_SPECIFIC_QUESTIONS[gameId] && GAME_SPECIFIC_QUESTIONS[gameId].length > 0)
+    ? GAME_SPECIFIC_QUESTIONS[gameId]
+    : (GAME_SPECIFIC_QUESTIONS['game-1-duel'] || SAMPLE_DUEL_QUESTIONS);
+
+  return baseQuestions.map(q => ({
+    ...q,
+    options: shuffleArray(q.options)
+  }));
 };
 

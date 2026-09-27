@@ -1,14 +1,15 @@
 {
-  "version": "1.0.6",
-  "versionCode": 106,
+  "version": "1.0.7",
+  "versionCode": 107,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.0.6 (Nút Google Login Đầu Trang & Fix Cuộn)",
+  "title": "Bản cập nhật Dio Talk v1.0.7 (Bắt Buộc Đăng Nhập Tài Khoản Google & In-App OAuth)",
   "changelog": [
-    "Đưa nút Tiếp tục nhanh bằng Google lên đầu trang để bấm ngay không cần cuộn",
-    "Đăng nhập Google trực tiếp trong ứng dụng 1 chạm, không chuyển sang trình duyệt Chrome",
-    "Sửa lỗi hiển thị và cuộn trang trên màn hình điện thoại",
-    "Khắc phục triệt để lỗi kiểm tra phiên bản hiển thị pop-up cập nhật liên tục"
+    "Bắt buộc đăng nhập tài khoản Google để lưu hồ sơ thuyền viên và chứng chỉ STCW",
+    "Tích hợp cửa sổ đăng nhập Google OAuth trực tiếp trong ứng dụng (In-App Popup Dialog)",
+    "Hỗ trợ nhập trực tiếp địa chỉ Gmail để xác thực tài khoản thật 100%",
+    "Loại bỏ hoàn toàn các chế độ bỏ qua demo không lưu trữ",
+    "Khắc phục triệt để lỗi Google 403 disallowed_useragent trên WebView"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.6/dio-talk-v1.0.6.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.7/dio-talk-v1.0.7.apk",
   "isMandatory": false
 }

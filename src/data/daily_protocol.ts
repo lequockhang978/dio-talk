@@ -1,4 +1,5 @@
 import { ALL_MARITIME_VOCABULARY, type MaritimeTermFull } from './vocabulary';
+import { getLocalDateKey } from '../services/dateService';
 
 export interface DailySessionQuestion {
   id: string;
@@ -287,7 +288,7 @@ export function generateDaily25Session(
   const history = getStudyHistory();
   const mastery = getMasteryRecords();
   const fluency = getFluencyStatus();
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = getLocalDateKey();
   const currentDayNumber = Object.keys(history.daysHistory).length + 1;
 
   // Filter pool matching department

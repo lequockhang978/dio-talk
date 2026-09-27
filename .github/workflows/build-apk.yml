@@ -43,33 +43,39 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
+      - name: Extract Version
+        id: get_version
+        run: |
+          VERSION=$(node -p "require('./public/version.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Prepare APK File
         run: |
           mkdir -p release-apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk release-apk/dio-talk-v1.0.1.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk release-apk/dio-talk-v${{ env.VERSION }}.apk
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dio-talk-v1.0.1-apk
-          path: release-apk/dio-talk-v1.0.1.apk
+          name: dio-talk-v${{ env.VERSION }}-apk
+          path: release-apk/dio-talk-v${{ env.VERSION }}.apk
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.1
-          name: 'Dio Talk v1.0.1 • MC1 VERSION'
+          tag_name: v${{ env.VERSION }}
+          name: 'Dio Talk v${{ env.VERSION }} • MC1 VERSION'
           body: |
-            ## ⚓ Dio Talk v1.0.1 - MC1 VERSION (STCW 78/2010)
+            ## ⚓ Dio Talk v${{ env.VERSION }} - MC1 VERSION (STCW 78/2010)
             - **Tác giả**: LÊ QUỐC KHANG
             - **Cập nhật**:
-              - Logo Squircle viền bo chuẩn nét, nền trong suốt.
-              - Tự động kiểm tra bản cập nhật online.
+              - Bắt buộc đăng nhập tài khoản Google để lưu hồ sơ thuyền viên và chứng chỉ STCW.
+              - In-App Google OAuth & xác thực an toàn.
               - 15 Minigame tương tác chống lặp câu hỏi.
               - Danh mục 20 AI Model hàng hải.
             
-            👉 **Tải trực tiếp file APK cài đặt bên dưới**: `dio-talk-v1.0.1.apk`
-          files: release-apk/dio-talk-v1.0.1.apk
+            👉 **Tải trực tiếp file APK cài đặt bên dưới**: `dio-talk-v${{ env.VERSION }}.apk`
+          files: release-apk/dio-talk-v${{ env.VERSION }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

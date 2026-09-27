@@ -10,6 +10,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import android.app.Dialog;
+import android.os.Message;
+import android.webkit.WebViewClient;
 import com.getcapacitor.BridgeActivity;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,8 +57,16 @@ public class MainActivity extends BridgeActivity {
             settings.setJavaScriptEnabled(true);
             settings.setDomStorageEnabled(true);
             settings.setDatabaseEnabled(true);
+            settings.setSupportMultipleWindows(true);
+            settings.setJavaScriptCanOpenWindowsAutomatically(true);
 
-            // Grant WebRTC and audio permissions automatically to WebView
+            // Strip '; wv' to allow Google OAuth inside WebView without 403 disallowed_useragent
+            String defaultUa = settings.getUserAgentString();
+            if (defaultUa != null && defaultUa.contains("; wv")) {
+                settings.setUserAgentString(defaultUa.replace("; wv", ""));
+            }
+
+            // Grant WebRTC and audio permissions automatically & handle Google Sign-In popups
             webView.setWebChromeClient(new WebChromeClient() {
                 @Override
                 public void onPermissionRequest(final PermissionRequest request) {
@@ -65,6 +76,48 @@ public class MainActivity extends BridgeActivity {
                             request.grant(request.getResources());
                         }
                     });
+                }
+
+                @Override
+                public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                    final Dialog dialog = new Dialog(MainActivity.this, android.R.style.Theme_DeviceDefault_Light_NoActionBar_Fullscreen);
+                    final WebView popupWebView = new WebView(MainActivity.this);
+                    WebSettings popupSettings = popupWebView.getSettings();
+                    popupSettings.setJavaScriptEnabled(true);
+                    popupSettings.setDomStorageEnabled(true);
+                    popupSettings.setDatabaseEnabled(true);
+                    popupSettings.setSupportMultipleWindows(true);
+                    popupSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+                    
+                    String pUa = popupSettings.getUserAgentString();
+                    if (pUa != null && pUa.contains("; wv")) {
+                        popupSettings.setUserAgentString(pUa.replace("; wv", ""));
+                    }
+
+                    popupWebView.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                            return false;
+                        }
+                    });
+
+                    popupWebView.setWebChromeClient(new WebChromeClient() {
+                        @Override
+                        public void onCloseWindow(WebView window) {
+                            if (dialog.isShowing()) {
+                                dialog.dismiss();
+                            }
+                            popupWebView.destroy();
+                        }
+                    });
+
+                    dialog.setContentView(popupWebView);
+                    dialog.show();
+
+                    WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                    transport.setWebView(popupWebView);
+                    resultMsg.sendToTarget();
+                    return true;
                 }
             });
         }
