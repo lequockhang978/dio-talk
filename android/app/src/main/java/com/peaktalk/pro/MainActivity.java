@@ -23,6 +23,19 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Ensure status bar & navigation bar do not overlap web content
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            getWindow().setStatusBarColor(android.graphics.Color.parseColor("#F5F7FA"));
+            androidx.core.view.WindowInsetsControllerCompat insetsController = 
+                androidx.core.view.WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            if (insetsController != null) {
+                insetsController.setAppearanceLightStatusBars(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    insetsController.setAppearanceLightNavigationBars(true);
+                }
+            }
+        }
         requestRequiredPermissions();
     }
 

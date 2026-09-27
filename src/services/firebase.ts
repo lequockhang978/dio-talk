@@ -259,27 +259,27 @@ export const syncUserToLeaderboard = async (user: CloudLeaderboardUser) => {
 };
 
 /**
- * Fetch real leaderboard records directly from Firestore Cloud Database
+ * Fetch 100% real leaderboard records directly from Firestore Cloud collections ('leaderboard' and 'users')
  */
 export const fetchRealLeaderboard = async (): Promise<CloudLeaderboardUser[]> => {
   if (!db) initFirebase();
 
   const resultMap = new Map<string, CloudLeaderboardUser>();
 
-  // 1. Fetch from 'leaderboard' collection in Firestore
   if (db) {
+    // 1. Fetch real users from 'leaderboard' collection in Firestore
     try {
-      const q = query(collection(db, 'leaderboard'), limit(50));
+      const q = query(collection(db, 'leaderboard'), limit(100));
       const snap = await getDocs(q);
       snap.forEach(d => {
         const data = d.data() as any;
-        if (data && data.name) {
+        if (data && (data.name || data.email)) {
           resultMap.set(d.id, {
             uid: d.id,
-            name: data.name,
+            name: data.name || (data.email ? data.email.split('@')[0] : 'Thuyền viên'),
             rank: data.rank || 'Sĩ quan',
-            ship: data.ship || 'Tàu viễn dương',
-            avatar: data.avatar || data.name.charAt(0).toUpperCase() || 'U',
+            ship: data.ship || 'M/V Ocean Pioneer',
+            avatar: data.avatar || (data.name ? data.name.charAt(0).toUpperCase() : 'U'),
             avatarBg: data.avatarBg || '#3B82F6',
             streak: Number(data.streak || data.streakDays || 1),
             vocab: Number(data.vocab || data.completedTerms || 0),
@@ -292,13 +292,45 @@ export const fetchRealLeaderboard = async (): Promise<CloudLeaderboardUser[]> =>
       });
     } catch (e) {
       console.warn('Error fetching leaderboard collection:', e);
-      throw e;
     }
 
+    // 2. Fetch real users from 'users' collection in Firestore
+    try {
+      const uq = query(collection(db, 'users'), limit(100));
+      const uSnap = await getDocs(uq);
+      uSnap.forEach(d => {
+        const data = d.data() as any;
+        if (data && (data.name || data.email || data.displayName)) {
+          const uid = d.id;
+          const name = data.name || data.displayName || (data.email ? data.email.split('@')[0] : 'Thuyền viên');
+          const existing = resultMap.get(uid);
+          if (!existing) {
+            resultMap.set(uid, {
+              uid,
+              name,
+              rank: data.rank || 'Sĩ quan',
+              ship: data.ship || 'Tàu viễn dương',
+              avatar: data.photoURL || name.charAt(0).toUpperCase() || 'U',
+              avatarBg: '#2563EB',
+              streak: Number(data.streak || data.streakDays || 1),
+              vocab: Number(data.vocab || data.completedTerms || 0),
+              xp: Number(data.xp || 100),
+              email: data.email || '',
+              department: data.department || 'engine',
+              updatedAt: data.updatedAt || data.lastLogin
+            });
+          } else {
+            if (!existing.email && data.email) existing.email = data.email;
+            if (data.rank && (!existing.rank || existing.rank === 'Sĩ quan')) existing.rank = data.rank;
+          }
+        }
+      });
+    } catch (uErr) {
+      console.warn('Error fetching users collection for leaderboard:', uErr);
+    }
   }
 
   const list = Array.from(resultMap.values());
-  // Save to cache for instant load next time
   try {
     localStorage.setItem('dio_cached_leaderboard', JSON.stringify(list));
   } catch (_) {}

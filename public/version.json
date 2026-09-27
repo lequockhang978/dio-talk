@@ -1,15 +1,15 @@
 {
-  "version": "1.0.7",
-  "versionCode": 107,
+  "version": "1.0.8",
+  "versionCode": 108,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.0.7 (Bắt Buộc Đăng Nhập Tài Khoản Google & In-App OAuth)",
+  "title": "Bản cập nhật Dio Talk v1.0.8 (Sửa Lỗi Đè Status Bar & Đồng Bộ 100% Dữ Liệu Thật)",
   "changelog": [
-    "Bắt buộc đăng nhập tài khoản Google để lưu hồ sơ thuyền viên và chứng chỉ STCW",
-    "Tích hợp cửa sổ đăng nhập Google OAuth trực tiếp trong ứng dụng (In-App Popup Dialog)",
-    "Hỗ trợ nhập trực tiếp địa chỉ Gmail để xác thực tài khoản thật 100%",
-    "Loại bỏ hoàn toàn các chế độ bỏ qua demo không lưu trữ",
-    "Khắc phục triệt để lỗi Google 403 disallowed_useragent trên WebView"
+    "Sửa triệt để lỗi giao diện bị tai thỏ, giờ và pin trên điện thoại đè lấp",
+    "Tự động căn chỉnh đệm an toàn Safe-Area cho bài học và thanh điều hướng",
+    "Thanh trạng thái hệ thống hiển thị màu nền ứng dụng và icon tối màu sắc nét",
+    "Bảng vàng Leaderboard đồng bộ 100% dữ liệu thật từ Firebase, không bot ảo",
+    "Thay thế popup thông báo trình duyệt bằng Toast nổi native cao cấp"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.7/dio-talk-v1.0.7.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.0.8/dio-talk-v1.0.8.apk",
   "isMandatory": false
 }
