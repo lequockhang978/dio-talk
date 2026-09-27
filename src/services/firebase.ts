@@ -10,6 +10,9 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   doc, 
   setDoc, 
   getDoc, 
@@ -69,7 +72,17 @@ export const initFirebase = (config?: FirebaseConfig) => {
       app = getApps()[0];
     }
     auth = getAuth(app);
-    db = getFirestore(app);
+    if (!db) {
+      try {
+        db = initializeFirestore(app, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+          })
+        });
+      } catch {
+        db = getFirestore(app);
+      }
+    }
     return { app, auth, db };
   } catch (error) {
     console.warn('Firebase init warning:', error);
@@ -210,7 +223,41 @@ export const saveUserFullProgressToCloud = async (uid: string, data: Partial<Ful
       });
     }
   } catch (e) {
-    console.warn('Failed to save full progress to cloud:', e);
+    console.warn('Failed to save full progress to cloud, saving to offline buffer:', e);
+    queueOfflineProgress(uid, data);
+  }
+};
+
+/**
+ * Offline Sync Queue: Buffer progress changes when disconnected at sea
+ */
+export const queueOfflineProgress = (uid: string, data: Partial<FullUserProgress>) => {
+  if (!uid) return;
+  try {
+    const queueKey = `dio_offline_sync_${uid}`;
+    const existing = localStorage.getItem(queueKey);
+    const parsed = existing ? JSON.parse(existing) : {};
+    const merged = { ...parsed, ...data, updatedAt: new Date().toISOString() };
+    localStorage.setItem(queueKey, JSON.stringify(merged));
+  } catch (e) {
+    console.warn('Queue offline progress error:', e);
+  }
+};
+
+export const syncPendingCloudProgress = async (uid: string) => {
+  if (!uid || typeof navigator === 'undefined' || !navigator.onLine) return;
+  try {
+    const queueKey = `dio_offline_sync_${uid}`;
+    const pending = localStorage.getItem(queueKey);
+    if (pending) {
+      const data = JSON.parse(pending);
+      if (data) {
+        await saveUserFullProgressToCloud(uid, data);
+        localStorage.removeItem(queueKey);
+      }
+    }
+  } catch (e) {
+    console.warn('Sync pending cloud progress error:', e);
   }
 };
 

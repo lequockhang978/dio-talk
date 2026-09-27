@@ -1,14 +1,14 @@
 {
-  "version": "1.1.0",
-  "versionCode": 110,
+  "version": "1.1.1",
+  "versionCode": 111,
   "releaseDate": "2026-09-27",
-  "title": "Bản cập nhật Dio Talk v1.1.0 (Tự Động Lưu Tiến Độ Dở Dang Từng Bài Học)",
+  "title": "Bản cập nhật Dio Talk v1.1.1 (Chế Độ Hải Trình Ngoại Tuyến & Bộ Nhớ Đệm Offline)",
   "changelog": [
-    "Tự động lưu vị trí từ vựng đang học dở trong mỗi bài (học đến từ 3/5 out ra vào lại tiếp tục ngay từ thứ 4)",
-    "Đồng bộ phiên học dở dang 2 chiều lên Firebase Cloud, không lo mất khi đổi máy hoặc xóa app",
-    "Hoàn thiện vùng đệm an toàn Safe-Area chống đè giờ, pin trên toàn bộ các dòng máy Android",
-    "Hiển thị thông báo Toast nhanh khi khôi phục vị trí bài học"
+    "Kích hoạt bộ nhớ đệm Firestore IndexedDB: Học hoàn toàn ngoại tuyến khi đi biển không có sóng",
+    "Tự động lưu hàng đợi tiến độ ngoại tuyến và đồng bộ lên Cloud ngay khi có kết nối mạng",
+    "Trợ lý AI phản xạ mô phỏng chuẩn IMO STCW khi mất mạng, không gián đoạn hội thoại",
+    "Huy hiệu và thông báo trạng thái kết nối mạng trực quan, ổn định"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.1.0/dio-talk-v1.1.0.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v1.1.1/dio-talk-v1.1.1.apk",
   "isMandatory": false
 }

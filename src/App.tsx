@@ -55,6 +55,7 @@ import {
   syncUserToLeaderboard,
   fetchRealLeaderboard,
   subscribeToRealLeaderboard,
+  syncPendingCloudProgress,
   type CloudLeaderboardUser
 } from './services/firebase';
 import {
@@ -814,6 +815,46 @@ export default function App() {
     };
   }, [restoreProgressFromCloud]);
 
+  // OFFLINE & SEA VOYAGE RESILIENCE ENGINE
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setMilestoneToast({
+        level: 4,
+        title: 'Đã kết nối lại Internet 📶',
+        subtitle: 'Tự động đồng bộ toàn bộ tiến độ lên Cloud',
+        sticker: 'diamond'
+      });
+      setTimeout(() => setMilestoneToast(null), 3500);
+      if (authenticatedUid) {
+        syncPendingCloudProgress(authenticatedUid);
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setMilestoneToast({
+        level: 2,
+        title: 'Chế độ Hải trình Ngoại tuyến ⚓',
+        subtitle: 'Tàu mất mạng: Toàn bộ bài học & từ vựng vẫn lưu an toàn trên máy',
+        sticker: 'silver-lightning'
+      });
+      setTimeout(() => setMilestoneToast(null), 4000);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [authenticatedUid]);
+
   // Google Sign-In with Automatic Full Cloud Restore
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
@@ -1384,11 +1425,22 @@ export default function App() {
 
       speakText(replySpeech);
     } catch (err: any) {
+      // Offline Sea Voyage Fallback: Standard STCW maritime responses
+      const partner = currentCourse.partnerRole || 'Sĩ quan';
+      const offlineReplies = [
+        `Understood, motorman. Report received clearly. Maintain standard operating parameters and log in the engine logbook.`,
+        `Good report. Keep monitoring the gauge pressure and verify auxiliary system operation.`,
+        `Roger that. Proceed with the routine STCW checklist and advise bridge if any deviation occurs.`,
+        `Acknowledge. Ensure all safety interlocks are verified before continuing operations.`
+      ];
+      const randomReply = offlineReplies[Math.floor(Math.random() * offlineReplies.length)];
+
       setSpeakingMessages([...nextMessages, {
         role: 'assistant',
-        text: 'Lỗi đường truyền tín hiệu AI. Vui lòng nói lại câu tiếp theo.',
-        feedback: 'Kiểm tra lại cấu hình Gateway API nếu sự cố lặp lại.'
+        text: randomReply,
+        feedback: `⚓ [Hải trình Ngoại tuyến] ${partner} phản hồi theo kịch bản chuẩn IMO STCW.`
       }]);
+      speakText(randomReply);
     } finally {
       setAiLoading(false);
     }
@@ -3238,6 +3290,26 @@ export default function App() {
                     </div>
                   </div>
                 </div>
+
+                {/* Offline Sea-Voyage Mode Banner */}
+                {!isOnline && (
+                  <div style={{
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: 14,
+                    padding: '8px 14px',
+                    margin: '10px 0 4px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    fontSize: '0.76rem',
+                    fontWeight: 700,
+                    color: '#334155'
+                  }}>
+                    <Sticker3D name="ship" size={16} />
+                    <span>Hải trình Ngoại tuyến: Bài học & tiến độ tự lưu vào máy</span>
+                  </div>
+                )}
 
                 {/* DAILY GOAL PROGRESS WIDGET (PROGRESSIVE 25 QUESTIONS) */}
                 <div 
