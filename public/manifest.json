@@ -1,0 +1,21 @@
+{
+  "short_name": "Dio Talk",
+  "name": "Dio Talk - Tiếng Anh Hàng Hải Chuyên Nghiệp",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#F5F7FA",
+  "theme_color": "#F5F7FA",
+  "display": "standalone",
+  "orientation": "portrait"
+}
