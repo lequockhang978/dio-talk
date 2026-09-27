@@ -47,8 +47,8 @@ import {
 import {
   signInWithGoogleFirebase,
   saveProfileToCloud,
-  getProfileFromCloud,
-  syncProgressToCloud,
+  saveUserFullProgressToCloud,
+  loadUserFullProgressFromCloud,
   signOutFirebase,
   subscribeToAuthState,
   getCurrentUserId,
@@ -298,11 +298,6 @@ export default function App() {
   const [authenticatedUid, setAuthenticatedUid] = useState<string | null>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  useEffect(() => subscribeToAuthState((user) => {
-    setAuthenticatedUid(user?.uid ?? null);
-    setIsLoggedIn(Boolean(user));
-  }), []);
-
   const handleLogout = async () => {
     try {
       await signOutFirebase();
@@ -311,48 +306,8 @@ export default function App() {
     localStorage.removeItem('dio_completed_today');
     localStorage.removeItem('dio_practice_minutes');
     localStorage.removeItem('dio_accuracy_score');
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
-    try {
-      const gUser = await signInWithGoogleFirebase();
-      const cloudData = await getProfileFromCloud(gUser.uid);
-      const googleProfile: UserProfile = {
-        name: cloudData?.name || gUser.name,
-        email: cloudData?.email || gUser.email,
-        department: cloudData?.department || currentDepartment,
-        rank: cloudData?.rank || (currentDepartment === 'deck' ? 'Thủy thủ lái (Helmsman / AB)' : 'Thợ máy (Motorman)'),
-        streakDays: cloudData?.streakDays ?? 0,
-        hearts: cloudData?.hearts ?? 5,
-        xp: cloudData?.xp ?? 0,
-        coins: cloudData?.coins ?? 100
-      };
-      setUserProfile(googleProfile);
-      setCurrentDepartment(googleProfile.department);
-      localStorage.setItem('dio_user_profile', JSON.stringify(googleProfile));
-      localStorage.setItem('dio_dept', googleProfile.department);
-      await saveProfileToCloud(gUser.uid, googleProfile);
-      try {
-        await syncUserToLeaderboard({
-          uid: gUser.uid,
-          name: googleProfile.name,
-          rank: googleProfile.rank,
-          ship: 'M/V Ocean Pioneer',
-          avatar: googleProfile.name ? googleProfile.name.charAt(0).toUpperCase() : 'K',
-          avatarBg: '#2563EB',
-          streak: googleProfile.streakDays || 1,
-          vocab: totalMasteredVocab,
-          xp: googleProfile.xp || 100,
-          email: googleProfile.email,
-          department: googleProfile.department
-        });
-      } catch (_) {}
-    } catch (err) {
-      console.warn('Google Sign-In failed:', err);
-    } finally {
-      setIsGoogleLoading(false);
-    }
+    setIsLoggedIn(false);
+    setAuthenticatedUid(null);
   };
 
   const [currentDepartment, setCurrentDepartment] = useState<'engine' | 'deck'>(() => {
@@ -398,18 +353,31 @@ export default function App() {
         return n;
       });
 
-      // Save to localStorage
+      // Save to localStorage & Cloud
+      const unlockedIds: string[] = [];
+      const starsMap: Record<string, number> = {};
+      updated.forEach(n => {
+        if (n.isUnlocked) unlockedIds.push(n.id);
+        if (n.stars > 0) starsMap[n.id] = n.stars;
+      });
+
       try {
         const unlockedMap: Record<string, boolean> = {};
-        const starsMap: Record<string, number> = {};
-        updated.forEach(n => {
-          if (n.isUnlocked) unlockedMap[n.id] = true;
-          if (n.stars > 0) starsMap[n.id] = n.stars;
-        });
+        unlockedIds.forEach(id => { unlockedMap[id] = true; });
         localStorage.setItem('dio_maritime_unlocked_nodes', JSON.stringify(unlockedMap));
         localStorage.setItem('dio_maritime_stars_nodes', JSON.stringify(starsMap));
       } catch (e) {
         console.error(e);
+      }
+
+      if (authenticatedUid) {
+        saveUserFullProgressToCloud(authenticatedUid, {
+          unlockedNodeIds: unlockedIds,
+          starsMap,
+          streakDays: userProfile.streakDays,
+          xp: userProfile.xp,
+          department: userProfile.department
+        });
       }
 
       return updated;
@@ -563,13 +531,12 @@ export default function App() {
 
     const uid = getCurrentUserId();
     if (!uid) return;
-    saveProfileToCloud(uid, newProfile);
-    syncProgressToCloud(uid, {
-      completedTerms: completedToday,
+    saveUserFullProgressToCloud(uid, {
+      ...newProfile,
+      completedToday,
       streakDays: newProfile.streakDays,
       xp: newProfile.xp,
-      hearts: newProfile.hearts,
-      accuracyScore: accuracyScore
+      hearts: newProfile.hearts
     });
   };
 
@@ -703,6 +670,113 @@ export default function App() {
     return s ? parseInt(s, 10) : 0;
   });
   const [termsState, setTermsState] = useState<Term[]>(() => currentCourse.terms);
+
+  // Full Two-Way Cloud Sync & Restore (Preserves data across app uninstalls & new devices)
+  const restoreProgressFromCloud = useCallback(async (uid: string) => {
+    try {
+      const cloud = await loadUserFullProgressFromCloud(uid);
+      if (!cloud) return;
+
+      // 1. Restore Profile
+      setUserProfile(prev => {
+        const streak = Math.max(cloud.streakDays, prev.streakDays);
+        const xp = Math.max(cloud.xp, prev.xp);
+        const updated: UserProfile = {
+          name: cloud.name || prev.name,
+          email: cloud.email || prev.email,
+          department: cloud.department || prev.department,
+          rank: cloud.rank || prev.rank,
+          streakDays: streak,
+          hearts: cloud.hearts ?? prev.hearts,
+          xp: xp,
+          coins: Math.max(cloud.coins ?? 100, prev.coins ?? 100)
+        };
+        try {
+          localStorage.setItem('dio_user_profile', JSON.stringify(updated));
+          localStorage.setItem('dio_dept', updated.department);
+        } catch {}
+        return updated;
+      });
+
+      if (cloud.department) {
+        setCurrentDepartment(cloud.department);
+      }
+
+      // 2. Restore Lesson Tree Nodes & Stars
+      setSkillTreeNodes(prev => {
+        const unlockedSet = new Set(cloud.unlockedNodeIds || []);
+        const starsMap = cloud.starsMap || {};
+        const recoveredVocab = cloud.masteredWords?.length || 0;
+
+        const updated = prev.map((node, nIdx) => {
+          const autoUnlock = recoveredVocab > 0 && nIdx <= Math.ceil(recoveredVocab / 4);
+          const isUnlocked = unlockedSet.has(node.id) || autoUnlock || node.isUnlocked;
+          const stars = starsMap[node.id] !== undefined 
+            ? Math.max(starsMap[node.id], node.stars)
+            : (autoUnlock && nIdx < Math.ceil(recoveredVocab / 4) ? 3 : node.stars);
+          return { ...node, isUnlocked, stars };
+        });
+
+        try {
+          const saveUnlocked: Record<string, boolean> = {};
+          const saveStars: Record<string, number> = {};
+          updated.forEach(n => {
+            if (n.isUnlocked) saveUnlocked[n.id] = true;
+            if (n.stars > 0) saveStars[n.id] = n.stars;
+          });
+          localStorage.setItem('dio_maritime_unlocked_nodes', JSON.stringify(saveUnlocked));
+          localStorage.setItem('dio_maritime_stars_nodes', JSON.stringify(saveStars));
+        } catch {}
+
+        return updated;
+      });
+
+      // 3. Restore Completed Today
+      if (cloud.completedToday) {
+        setCompletedToday(prev => Math.max(prev, cloud.completedToday || 0));
+        try {
+          localStorage.setItem('dio_completed_today', String(cloud.completedToday));
+        } catch {}
+      }
+
+      // 4. Restore Mastered Words
+      if (cloud.masteredWords && cloud.masteredWords.length > 0) {
+        const mSet = new Set(cloud.masteredWords);
+        setTermsState(prev => prev.map(t => mSet.has(t.word) ? { ...t, mastered: true, dots: Math.max(t.dots, 5) } : t));
+      }
+    } catch (e) {
+      console.warn('Failed to restore progress from cloud:', e);
+    }
+  }, []);
+
+  // Listen to Auth State and Auto-Restore All Cloud Data on App Launch / Reinstall
+  useEffect(() => {
+    const unsubscribe = subscribeToAuthState((user) => {
+      setAuthenticatedUid(user?.uid ?? null);
+      setIsLoggedIn(Boolean(user));
+      if (user?.uid) {
+        restoreProgressFromCloud(user.uid);
+      }
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [restoreProgressFromCloud]);
+
+  // Google Sign-In with Automatic Full Cloud Restore
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const gUser = await signInWithGoogleFirebase();
+      setAuthenticatedUid(gUser.uid);
+      setIsLoggedIn(true);
+      await restoreProgressFromCloud(gUser.uid);
+    } catch (err) {
+      console.warn('Google Sign-In failed:', err);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   // Active Modes: 'none' | 'speaking' | 'quiz' | 'vocab-study' | 'daily-protocol' | 'marlins' | 'vhf' | 'emergency'
   const [activeMode, setActiveMode] = useState<'none' | 'speaking' | 'quiz' | 'vocab-study' | 'daily-protocol' | 'marlins' | 'vhf' | 'emergency'>('none');

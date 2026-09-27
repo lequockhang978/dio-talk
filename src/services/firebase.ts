@@ -160,25 +160,99 @@ export const getProfileFromCloud = async (uid: string) => {
 };
 
 /**
- * Sync lesson progress to Firestore
+ * Full user cloud progress structure
  */
-export const syncProgressToCloud = async (uid: string, progress: {
-  completedTerms: number;
+export interface FullUserProgress {
+  name: string;
+  email: string;
+  department: 'engine' | 'deck';
+  rank: string;
   streakDays: number;
-  xp: number;
   hearts: number;
-  accuracyScore: number;
-}) => {
+  xp: number;
+  coins: number;
+  unlockedNodeIds: string[];
+  starsMap: Record<string, number>;
+  masteredWords: string[];
+  completedToday: number;
+}
+
+/**
+ * Save complete user progress to Firestore
+ */
+export const saveUserFullProgressToCloud = async (uid: string, data: Partial<FullUserProgress>) => {
+  if (!db) initFirebase();
   if (!db) return;
   try {
-    const progressRef = doc(db, 'users', uid, 'data', 'progress');
-    await setDoc(progressRef, {
-      ...progress,
-      lastSyncedAt: new Date().toISOString()
-    }, { merge: true });
+    const cleanId = (uid || 'anon').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const userRef = doc(db, 'users', cleanId);
+    const payload = {
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(userRef, payload, { merge: true });
+
+    // Also sync to leaderboard
+    if (data.name) {
+      await syncUserToLeaderboard({
+        uid: cleanId,
+        name: data.name,
+        rank: data.rank || 'Thợ máy (Motorman)',
+        ship: 'M/V Ocean Pioneer',
+        avatar: data.name.charAt(0).toUpperCase() || 'U',
+        avatarBg: '#2563EB',
+        streak: Number(data.streakDays) || 1,
+        vocab: data.masteredWords ? data.masteredWords.length : 0,
+        xp: Number(data.xp) || 100,
+        email: data.email || '',
+        department: data.department || 'engine'
+      });
+    }
   } catch (e) {
-    console.warn('Failed to sync progress to cloud:', e);
+    console.warn('Failed to save full progress to cloud:', e);
   }
+};
+
+/**
+ * Load complete user progress from Firestore
+ */
+export const loadUserFullProgressFromCloud = async (uid: string): Promise<FullUserProgress | null> => {
+  if (!db) initFirebase();
+  if (!db) return null;
+  try {
+    const cleanId = (uid || 'anon').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const userRef = doc(db, 'users', cleanId);
+    let snap = await getDoc(userRef);
+    let data: any = snap.exists() ? snap.data() : null;
+
+    if (!data) {
+      const lbRef = doc(db, 'leaderboard', cleanId);
+      const lbSnap = await getDoc(lbRef);
+      if (lbSnap.exists()) {
+        data = lbSnap.data();
+      }
+    }
+
+    if (data) {
+      return {
+        name: data.name || 'Thuyền viên',
+        email: data.email || '',
+        department: (data.department === 'deck' ? 'deck' : 'engine'),
+        rank: data.rank || (data.department === 'deck' ? 'Thủy thủ lái (Helmsman / AB)' : 'Thợ máy (Motorman)'),
+        streakDays: Number(data.streakDays ?? data.streak) || 0,
+        hearts: Number(data.hearts) || 5,
+        xp: Number(data.xp) || 0,
+        coins: Number(data.coins) || 100,
+        unlockedNodeIds: Array.isArray(data.unlockedNodeIds) ? data.unlockedNodeIds : [],
+        starsMap: (data.starsMap && typeof data.starsMap === 'object') ? data.starsMap : {},
+        masteredWords: Array.isArray(data.masteredWords) ? data.masteredWords : [],
+        completedToday: Number(data.completedToday) || 0
+      };
+    }
+  } catch (e) {
+    console.warn('Failed to load full user progress from cloud:', e);
+  }
+  return null;
 };
 
 export const subscribeToAuthState = (onChange: (user: User | null) => void) => {
