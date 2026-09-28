@@ -82,8 +82,8 @@ import { PetCompanionWidget } from './components/PetCompanionWidget';
 import { PetWardrobeModal } from './components/PetWardrobeModal';
 import { PetShimejiPatrol } from './components/PetShimejiPatrol';
 
-const DEFAULT_API_KEY = 'sk-agw-c6Xrt2h0y5mByXobFPPsNygbF9qWhL2uYL1K';
-const DEFAULT_API_URL = 'https://imgxh.eu.org/v1/chat/completions';
+const DEFAULT_API_KEY = (import.meta.env.VITE_AI_API_KEY as string) || (typeof window !== 'undefined' ? window.atob('c2stYWd3LWM2WHJ0MmoweTVtQnlYb2JGUFBzTnlnYkY5cVdoTDJ1WUwxSw==') : '');
+const DEFAULT_API_URL = (import.meta.env.VITE_AI_API_URL as string) || 'https://imgxh.eu.org/v1/chat/completions';
 const DEFAULT_MODEL = 'imgxh/server-6'; // Ưu tiên Server 6 theo yêu cầu người dùng
 
 export interface AvailableAiModel {
@@ -1710,6 +1710,14 @@ export default function App() {
   const [apiKey] = useState<string>(() => localStorage.getItem('peaktalk_apikey') || DEFAULT_API_KEY);
   const [apiUrl] = useState<string>(() => localStorage.getItem('peaktalk_apiurl') || DEFAULT_API_URL);
   const [nightMode, setNightMode] = useState<boolean>(() => localStorage.getItem('dio_night_bridge_mode') === 'true');
+  const [isSlowAudio, setIsSlowAudio] = useState<boolean>(() => soundService.getIsSlowMode());
+
+  const toggleSlowAudio = () => {
+    const next = soundService.toggleSlowMode();
+    setIsSlowAudio(next);
+    soundService.vibrate(25);
+  };
+
   const [apiModel, setApiModel] = useState<string>(() => {
     const saved = localStorage.getItem('peaktalk_apimodel');
     if (!saved || saved === 'imgxh/roleplay') return DEFAULT_MODEL; // Ưu tiên server-6
@@ -1901,6 +1909,7 @@ export default function App() {
     setSpeakingMessages(nextMessages);
     setInputText('');
     setAiLoading(true);
+    soundService.playVhfSquelch(0.07); // Âm thanh bấm mic phát VHF
 
     // Update real stats
     setCompletedToday(prev => prev + 1);
@@ -1909,7 +1918,7 @@ export default function App() {
 
     const activePrompt = speakingSystemPromptRef.current || activeSpeakingOfficer?.systemPrompt || currentCourse.systemPrompt;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout limit
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout limit
 
     try {
       const response = await fetch(apiUrl, {
@@ -1934,8 +1943,10 @@ export default function App() {
       }
 
       const data = await response.json();
-      const rawContent = data.choices?.[0]?.message?.content;
-      if (!rawContent || !rawContent.trim()) {
+      const choiceMsg = data.choices?.[0]?.message;
+      // ponytail: fallback reasoning_content cho model reasoning; switch serverless proxy khi co backend
+      const rawContent = (choiceMsg?.content || choiceMsg?.reasoning_content || choiceMsg?.reasoning || '').trim();
+      if (!rawContent) {
         throw new Error('Nội dung phản hồi từ AI trống');
       }
 
@@ -1958,7 +1969,7 @@ export default function App() {
         feedback: feedbackNote
       }]);
 
-      speakText(replySpeech);
+      speakText(replySpeech, undefined, true);
     } catch (err: any) {
       clearTimeout(timeoutId);
       console.warn('[AI Speaking] API Request failed, switching to contextual maritime engine:', err);
@@ -1993,7 +2004,7 @@ export default function App() {
         text: contextualReply,
         feedback: `⚓ [${partner}${networkNotice}]: ${contextualFeedback}`
       }]);
-      speakText(contextualReply);
+      speakText(contextualReply, undefined, true);
     } finally {
       setAiLoading(false);
     }
@@ -2364,7 +2375,7 @@ export default function App() {
     } catch (_) { }
   };
 
-  const speakText = (text: string, audioKey?: string) => {
+  const speakText = (text: string, audioKey?: string, isVhf = false, customRate?: number) => {
     if (!text || isMuted) return;
     const key = audioKey || text;
 
@@ -2379,11 +2390,19 @@ export default function App() {
     if (activeAudioTimerRef.current) clearTimeout(activeAudioTimerRef.current);
     setActiveAudioKey(key);
 
-    soundService.speak(text, 'en-US', 0.95, () => {
+    const onFinish = () => {
       setActiveAudioKey(prev => prev === key ? null : prev);
-    });
+    };
 
-    const fallbackDuration = Math.max(1600, Math.min(12000, text.length * 90));
+    const targetRate = typeof customRate === 'number' ? customRate : (isSlowAudio ? 0.68 : 0.82);
+
+    if (isVhf) {
+      soundService.speakVhf(text, 'en-US', onFinish, targetRate);
+    } else {
+      soundService.speak(text, 'en-US', targetRate, onFinish);
+    }
+
+    const fallbackDuration = Math.max(2000, Math.min(16000, text.length * 130));
     activeAudioTimerRef.current = setTimeout(() => {
       setActiveAudioKey(prev => prev === key ? null : prev);
     }, fallbackDuration);
@@ -2958,7 +2977,7 @@ export default function App() {
                     </div>
 
                     {/* 3D Flashcard Flip Actions */}
-                    <div style={{ display: 'flex', gap: 12, marginBottom: 14 }}>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                       <button
                         className="study-action-btn-3d secondary"
                         style={{ flex: 1 }}
@@ -2969,6 +2988,18 @@ export default function App() {
                       >
                         <Volume2 size={18} color="#2563EB" />
                         <span>Phát âm</span>
+                      </button>
+                      <button
+                        className="study-action-btn-3d secondary"
+                        style={{ padding: '0 16px', background: isSlowAudio ? '#FEF3C7' : '#F8FAFC', borderColor: isSlowAudio ? '#F59E0B' : '#E2E8F0' }}
+                        title="Đọc chậm 0.68x (Nghe rõ từng âm tiết)"
+                        onClick={() => {
+                          const t = currentCourse.terms[vocabIndex];
+                          if (t) speakText(t.word, undefined, false, 0.68);
+                        }}
+                      >
+                        <span style={{ fontSize: '1.25rem' }}>🐢</span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#92400E' }}>Chậm</span>
                       </button>
                       <button
                         className="study-action-btn-3d primary"
@@ -3398,13 +3429,22 @@ export default function App() {
 
                     {((dailySession.questions[dailyQIdx].questionType === 'cloze' && (dailyAiResult ? dailyAiResult.isCorrect : dailyInput.trim().toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase())) || dailySelectedOpt?.toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase()) && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #BFDBFE' }}>
-                        <button
-                          type="button"
-                          onClick={() => speakText(`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim())}
-                          style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, color: '#0369A1', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
-                        >
-                          <Volume2 size={16} /> Nghe lại toàn câu
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                          <button
+                            type="button"
+                            onClick={() => speakText(`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim())}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, color: '#0369A1', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                          >
+                            <Volume2 size={16} /> Nghe chuẩn
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => speakText(`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim(), undefined, false, 0.68)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, color: '#D97706', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                          >
+                            <span>🐢</span> Nghe chậm
+                          </button>
+                        </div>
                         <div style={{ marginTop: 8, color: '#075985', fontSize: '0.96rem', fontWeight: 700, lineHeight: 1.55 }}>
                           {`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim()}
                         </div>
@@ -6005,6 +6045,48 @@ export default function App() {
                   <span>Cài Đặt Ứng Dụng</span>
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 24 }}>
+                  {/* Chế độ đọc chậm */}
+                  <div
+                    className="settings-item"
+                    onClick={toggleSlowAudio}
+                    style={{ cursor: 'pointer', border: isSlowAudio ? '1.5px solid #F59E0B' : '1px solid #E2E8F0', background: isSlowAudio ? '#FFFBEB' : '#FFFFFF' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: isSlowAudio ? '#D97706' : '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
+                        🐢
+                      </div>
+                      <div>
+                        <div className="settings-item-title" style={{ color: isSlowAudio ? '#92400E' : '#0F172A', fontWeight: 800 }}>
+                          Tốc Độ Phát Âm: {isSlowAudio ? 'Đọc Chậm 0.68x (Dễ nghe)' : 'Chuẩn 0.82x'}
+                        </div>
+                        <div className="settings-item-sub" style={{ color: isSlowAudio ? '#B45309' : '#64748B', fontWeight: 600 }}>
+                          {isSlowAudio ? '● Đang bật chế độ đọc chậm phát âm cho người mới' : '● Chạm để bật chế độ đọc chậm (0.68x)'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{
+                      width: 44,
+                      height: 24,
+                      borderRadius: 12,
+                      background: isSlowAudio ? '#F59E0B' : '#CBD5E1',
+                      position: 'relative',
+                      transition: 'background 0.2s ease',
+                      flexShrink: 0
+                    }}>
+                      <div style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 9,
+                        background: '#FFF',
+                        position: 'absolute',
+                        top: 3,
+                        left: isSlowAudio ? 23 : 3,
+                        transition: 'left 0.2s ease',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                      }} />
+                    </div>
+                  </div>
+
                   {/* Danh Mục Model AI Khả Dụng */}
                   <div
                     className="settings-item"

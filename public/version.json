@@ -1,15 +1,15 @@
 {
-  "version": "2.3.0",
-  "versionCode": 230,
+  "version": "2.3.1",
+  "versionCode": 231,
   "releaseDate": "2026-09-28",
-  "title": "Bản cập nhật Dio Talk v2.3.0 (Pet Dio Tuần Tra Shimeji, Tủ Đồ 9 Skin, Nhắc Học Thông Minh)",
+  "title": "Bản cập nhật Dio Talk v2.3.1 (Sửa Lỗi AI Thinking, Chế Độ Đọc Chậm 🐢, Âm Thanh Vô Tuyến VHF)",
   "changelog": [
-    "Thú cưng Dio Shimeji tuần tra dọc màn hình, bước đi waddle đáng yêu và tương tác khi chạm",
-    "Bóng thoại thông minh gợi ý bài học kế tiếp, nhắc giữ Streak và nút Học Ngay",
-    "Bổ sung 4 skin mới vào Tủ Đồ: Bếp Trưởng, Bác Sĩ, Thợ Lặn Biển Sâu và Đô Đốc Tối Cao",
-    "Chế độ ngủ cho Dio (nút 🌙) thu gọn thành dock tiện lợi, không gây xao nhãng",
-    "Tự động phát âm câu tiếng Anh, lưu lịch sử học tập tức thì và tối ưu giao diện"
+    "Sửa triệt để lỗi Server 6 (Thinking model) - phản hồi tự nhiên và mượt mà",
+    "Thêm chế độ phát âm đọc chậm 0.68x chuyên sâu cho người mới bắt đầu",
+    "Tích hợp hiệu ứng âm thanh xào sóng vô tuyến hàng hải VHF (Squelch) và Roger Beep chuẩn STCW",
+    "Bảo mật endpoint API AI và bổ sung Service Worker hỗ trợ ngoại tuyến 100%",
+    "Mở rộng thêm 12 câu hỏi thực chiến chuẩn đề thi STCW / Marlins Test"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v2.3.0/dio-talk-v2.3.0.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v2.3.1/dio-talk-v2.3.1.apk",
   "isMandatory": false
 }

@@ -313,12 +313,96 @@ class SoundService {
     }
   }
 
-  public async speak(text: string, lang = 'en-US', rate = 0.95, onEnd?: () => void): Promise<void> {
+  /**
+   * Âm thanh xào rè vô tuyến VHF (VHF Radio Squelch Burst)
+   * Tái tạo chính xác dải tần vô tuyến hàng hải 300Hz - 3400Hz bằng Web Audio API
+   */
+  public playVhfSquelch(duration = 0.09) {
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
+    try {
+      const bufferSize = Math.floor(ctx.sampleRate * duration);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1; // White noise
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      // Lọc dải tần vô tuyến hàng hải VHF
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1750;
+      filter.Q.value = 1.4;
+
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      whiteNoise.start(now);
+      whiteNoise.stop(now + duration);
+    } catch {}
+  }
+
+
+  private isSlowMode = typeof window !== 'undefined' && localStorage.getItem('dio_slow_speech') === 'true';
+
+  public getIsSlowMode(): boolean {
+    return this.isSlowMode;
+  }
+
+  public setSlowMode(enabled: boolean): void {
+    this.isSlowMode = enabled;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('dio_slow_speech', String(enabled));
+    }
+  }
+
+  public toggleSlowMode(): boolean {
+    this.setSlowMode(!this.isSlowMode);
+    return this.isSlowMode;
+  }
+
+  public getEffectiveRate(customRate?: number): number {
+    if (typeof customRate === 'number' && customRate > 0) return customRate;
+    return this.isSlowMode ? 0.68 : 0.82;
+  }
+
+  /**
+   * Phát đàm thoại mô phỏng VHF chuẩn: Squelch -> Đọc tin -> Roger Beep
+   */
+  public async speakVhf(text: string, lang = 'en-US', onEnd?: () => void, rate?: number): Promise<void> {
+    this.playVhfSquelch(0.08);
+    const effectiveRate = this.getEffectiveRate(rate);
+    setTimeout(async () => {
+      await this.speak(text, lang, effectiveRate, () => {
+        this.playRogerBeep();
+        onEnd?.();
+      });
+    }, 90);
+  }
+
+  /**
+   * Phát âm chậm chuyên dụng (0.68x) để học viên nghe rõ ngữ âm hàng hải
+   */
+  public async speakSlow(text: string, lang = 'en-US', onEnd?: () => void): Promise<void> {
+    return this.speak(text, lang, 0.68, onEnd);
+  }
+
+  public async speak(text: string, lang = 'en-US', rate?: number, onEnd?: () => void): Promise<void> {
     if (!text || !text.trim()) {
       onEnd?.();
       return;
     }
     const cleanText = text.trim();
+    const effectiveRate = this.getEffectiveRate(rate);
 
     // 1. If running inside Android APK (Native), use OS Text-to-Speech engine
     if (this.isNative) {
@@ -327,7 +411,7 @@ class SoundService {
         await TextToSpeech.speak({
           text: cleanText,
           lang,
-          rate,
+          rate: effectiveRate,
           pitch: 1.0,
           volume: 1.0,
           category: 'playback',
@@ -339,24 +423,28 @@ class SoundService {
       }
     }
 
-    // 2. Web / Desktop fallback (Identical to Web Test)
+    // 2. Web / Desktop fallback (Web Speech API)
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = lang;
-        utterance.rate = rate;
+        utterance.rate = effectiveRate;
         
         const voices = window.speechSynthesis.getVoices();
         const matchedVoice = voices.find(v => v.lang.startsWith(lang.split('-')[0])) || voices[0];
         if (matchedVoice) utterance.voice = matchedVoice;
 
-        utterance.onend = () => {
-          onEnd?.();
+        let ended = false;
+        const complete = () => {
+          if (!ended) {
+            ended = true;
+            onEnd?.();
+          }
         };
-        utterance.onerror = () => {
-          onEnd?.();
-        };
+
+        utterance.onend = complete;
+        utterance.onerror = complete;
 
         window.speechSynthesis.speak(utterance);
         return;
@@ -365,24 +453,31 @@ class SoundService {
       }
     }
 
-    // 3. Last-resort HTML5 audio fallback
+    // 3. Fallback: Safe audio load (bọc timeout chống treo khi gặp CORS / 429 Rate Limit)
     try {
       if (this.currentAudio) {
         this.currentAudio.pause();
         this.currentAudio.currentTime = 0;
       }
       const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(cleanText.slice(0, 180))}`;
-      this.currentAudio = new Audio(audioUrl);
-      this.currentAudio.playbackRate = rate;
-      this.currentAudio.onended = () => {
-        onEnd?.();
+      const audio = new Audio(audioUrl);
+      this.currentAudio = audio;
+      audio.playbackRate = effectiveRate;
+
+      let called = false;
+      const done = () => {
+        if (!called) {
+          called = true;
+          onEnd?.();
+        }
       };
-      this.currentAudio.onerror = () => {
-        onEnd?.();
-      };
-      this.currentAudio.play().catch(() => {
-        onEnd?.();
-      });
+
+      audio.onended = done;
+      audio.onerror = done;
+      // An toàn tối đa 4 giây nếu Google chặn CORS / 429
+      setTimeout(done, 4000);
+
+      audio.play().catch(() => done());
     } catch {
       onEnd?.();
     }

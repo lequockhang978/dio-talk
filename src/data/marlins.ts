@@ -274,5 +274,152 @@ export const MARLINS_EXAM_DATA: MarlinsQuestion[] = [
     correctIndex: 1,
     explanation: 'Theo Bộ luật IMDG Code, biểu tượng đầu lâu xương chéo biểu thị Hàng hóa chất độc hại (Class 6.1 Toxic Substances).',
     maritimeContext: 'IMDG Code Dangerous Goods Placards'
+  },
+  {
+    id: 'mar-19',
+    category: 'listening',
+    categoryTitle: 'Nghe hiểu câu lệnh Hàng hải (Listening)',
+    prompt: 'Hoa tiêu trao đổi với Thuyền trưởng khi tiếp cận luồng. Ý của Hoa tiêu là gì?',
+    audioText: 'Captain, prepare the starboard anchor with one shackle on deck. We will let go starboard anchor if current exceeds three knots.',
+    options: [
+      'Chuẩn bị neo mạn phải với 1 đường lăm trên mặt boong, sẵn sàng xông neo nếu dòng chảy vượt quá 3 hải lý/giờ',
+      'Kéo hết neo mạn trái lên và tăng tốc máy chính lên 3 hải lý/giờ',
+      'Thả xuồng cứu sinh mạn phải để kiểm tra độ sâu',
+      'Cắt dây kéo của tàu lai bên mạn phải'
+    ],
+    correctIndex: 0,
+    explanation: '"One shackle on deck" = 1 đường lăm (đoạn xích 27.5m) trên mặt boong. "Let go anchor" = thả neo/xông neo.',
+    maritimeContext: 'Master / Pilot Information Exchange'
+  },
+  {
+    id: 'mar-20',
+    category: 'listening',
+    categoryTitle: 'Nghe hiểu câu lệnh Hàng hải (Listening)',
+    prompt: 'Sĩ quan trực ca phát lệnh diễn tập sự cố buồng lái. Lệnh này yêu cầu điều gì?',
+    audioText: 'All deck officers and engineers, switch steering control to local emergency steering in the steering gear room immediately.',
+    options: [
+      'Chuyển điều khiển lái sang chế độ lái sự cố tại buồng máy lái ngay lập tức',
+      'Dừng máy lái số 1 và khởi động máy nén khí sự cố',
+      'Bẻ hết lái sang trái để tránh luồng tàu',
+      'Kiểm tra mức dầu thủy lực trong két la-gông'
+    ],
+    correctIndex: 0,
+    explanation: '"Local emergency steering in steering gear room" = hệ thống lái sự cố cục bộ tại buồng máy lái.',
+    maritimeContext: 'SOLAS Emergency Steering Drill'
+  },
+  {
+    id: 'mar-21',
+    category: 'grammar',
+    categoryTitle: 'Ngữ pháp & Cấu trúc kỹ thuật hàng hải',
+    prompt: 'Điền dạng đúng của động từ: "The Chief Engineer insisted on _____ the bunker delivery note before signing."',
+    options: ['checking', 'check', 'checked', 'to check'],
+    correctIndex: 0,
+    explanation: 'Giới từ "on" đi kèm V-ing: insist on + V-ing (insisted on checking = kiên quyết kiểm tra).',
+    maritimeContext: 'MARPOL Bunkering Procedures & BDN Verification'
+  },
+  {
+    id: 'mar-22',
+    category: 'grammar',
+    categoryTitle: 'Ngữ pháp & Cấu trúc kỹ thuật hàng hải',
+    prompt: 'Chọn từ chính xác: "No hot work shall be carried out _____ a hot work permit has been issued and signed by the Master."',
+    options: ['unless', 'because', 'although', 'in order that'],
+    correctIndex: 0,
+    explanation: '"Unless" = trừ khi (Nghiêm cấm làm công việc phát sinh nhiệt trừ khi đã có giấy phép làm việc nóng được Thuyền trưởng ký).',
+    maritimeContext: 'ISM Safety Management & Hot Work Permits'
+  },
+  {
+    id: 'mar-23',
+    category: 'vocabulary',
+    categoryTitle: 'Từ vựng & Cụm từ chuẩn hóa IMO SMCP',
+    prompt: 'Đường ranh giới an toàn được cài đặt trên hải đồ điện tử ECDIS để cảnh báo nguy cơ mắc cạn gọi là gì?',
+    options: ['Safety Contour', 'Safety Horizon', 'Clearing Bearing', 'Transit Line'],
+    correctIndex: 0,
+    explanation: 'Safety Contour (Đường đẳng sâu an toàn) trên ECDIS được tính theo mớn nước tĩnh + UKC - chiều cao thủy triều.',
+    maritimeContext: 'ECDIS Safe Passage Planning'
+  },
+  {
+    id: 'mar-24',
+    category: 'vocabulary',
+    categoryTitle: 'Từ vựng & Cụm từ chuẩn hóa IMO SMCP',
+    prompt: 'Thao tác xả đáy nồi hơi định kỳ để loại bỏ cặn bùn tích tụ gọi là gì?',
+    options: ['Boiler bottom blowdown', 'Boiler soot blowing', 'Boiler water dosing', 'Boiler flameout'],
+    correctIndex: 0,
+    explanation: 'Bottom blowdown là thao tác xả đáy nồi hơi để xả cặn lắng và duy trì nồng độ hóa chất xử lý nước.',
+    maritimeContext: 'Marine Auxiliary Boiler Operations'
+  },
+  {
+    id: 'mar-25',
+    category: 'vocabulary',
+    categoryTitle: 'Từ vựng & Cụm từ chuẩn hóa IMO SMCP',
+    prompt: 'Đĩa tròn điều chỉnh tỉ trọng nước/dầu lắp trong máy lọc ly tâm (Purifier) gọi là gì?',
+    options: ['Gravity disc', 'Paring disc', 'Bowl spindle', 'Blind disc'],
+    correctIndex: 0,
+    explanation: 'Gravity disc (Đĩa tỉ trọng) xác định vị trí mặt phân cách dầu-nước trong đĩa quay máy lọc ly tâm.',
+    maritimeContext: 'Fuel Oil Purifier Separation Maintenance'
+  },
+  {
+    id: 'mar-26',
+    category: 'numbers',
+    categoryTitle: 'Thời gian, Tọa độ & Đơn vị đo hàng hải',
+    prompt: 'Theo quy định SOLAS, nhiệt độ chớp cháy (Flash Point) tối thiểu của dầu đốt được phép sử dụng trên tàu biển là bao nhiêu?',
+    options: ['60°C (140°F)', '45°C (113°F)', '30°C (86°F)', '100°C (212°F)'],
+    correctIndex: 0,
+    explanation: 'SOLAS quy định không được phép sử dụng bất kỳ loại dầu đốt nào có nhiệt độ chớp cháy nhỏ hơn 60°C cho tàu biển thông thường.',
+    maritimeContext: 'SOLAS Fire Safety Regulations for Fuel Oil'
+  },
+  {
+    id: 'mar-27',
+    category: 'numbers',
+    categoryTitle: 'Thời gian, Tọa độ & Đơn vị đo hàng hải',
+    prompt: 'Tọa độ GPS "10° 45.2\' N, 106° 48.5\' E" được đọc chuẩn vô tuyến IMO SMCP như thế nào?',
+    options: [
+      'One-zero degrees four-five decimal two minutes North, one-zero-six degrees four-eight decimal five minutes East',
+      'Ten degrees forty-five point two North, one hundred six East',
+      'Ten four five North, one zero six East',
+      'Latitude ten, Longitude one hundred six'
+    ],
+    correctIndex: 0,
+    explanation: 'IMO SMCP quy định từng chữ số tọa độ phải được đọc riêng lẻ kèm từ "degrees", "decimal", "minutes" và hướng Bắc/Nam/Đông/Tây.',
+    maritimeContext: 'IMO SMCP Reporting Positions'
+  },
+  {
+    id: 'mar-28',
+    category: 'reading',
+    categoryTitle: 'Đọc hiểu Biển báo & Ký hiệu An toàn IMO',
+    prompt: 'Ban ngày, một tàu treo dấu hiệu hình trụ tròn màu đen (Black Cylinder) ở nơi dễ nhìn thấy nhất. Tàu này là loại tàu gì theo COLREGs?',
+    options: [
+      'Tàu bị hạn chế bởi mớn nước (Vessel Constrained by her Draught - Rule 28)',
+      'Tàu đang thả neo (Vessel at anchor)',
+      'Tàu mất khả năng điều động (Vessel Not Under Command)',
+      'Tàu mắc cạn (Vessel aground)'
+    ],
+    correctIndex: 0,
+    explanation: 'Theo Quy tắc 28 COLREGs, tàu bị hạn chế bởi mớn nước ban ngày phải treo một dấu hiệu hình trụ (cylinder).',
+    maritimeContext: 'COLREGs Rule 28 Day Shapes & Navigation Lights'
+  },
+  {
+    id: 'mar-29',
+    category: 'reading',
+    categoryTitle: 'Đọc hiểu Biển báo & Ký hiệu An toàn IMO',
+    prompt: 'Thiết bị EEBD (Emergency Escape Breathing Device) trên tàu có thời gian cung cấp dưỡng khí tối thiểu là bao nhiêu phút?',
+    options: ['10 phút', '30 phút', '60 phút', '3 phút'],
+    correctIndex: 0,
+    explanation: 'EEBD theo SOLAS phải cung cấp đủ không khí thở tối thiểu 10 phút để thuyền viên thoát ra khỏi khu vực nguy hiểm buồng máy.',
+    maritimeContext: 'SOLAS Fire Safety Systems Code (FSS Code)'
+  },
+  {
+    id: 'mar-30',
+    category: 'reading',
+    categoryTitle: 'Đọc hiểu Biển báo & Ký hiệu An toàn IMO',
+    prompt: 'Theo Phụ lục V MARPOL, rác thải nhựa (plastics) được phép xả xuống biển trong điều kiện nào?',
+    options: [
+      'Tuyệt đối không được phép xả trong bất kỳ trường hợp nào',
+      'Được xả khi tàu cách bờ trên 12 hải lý',
+      'Được xả khi rác nhựa đã được nghiền mịn dưới 25mm',
+      'Được xả ngoài khu vực đặc biệt (Outside Special Areas)'
+    ],
+    correctIndex: 0,
+    explanation: 'MARPOL Annex V nghiêm cấm tuyệt đối việc xả mọi loại rác thải bằng nhựa xuống biển ở mọi nơi, mọi thời điểm.',
+    maritimeContext: 'MARPOL Annex V Prevention of Pollution by Garbage'
   }
 ];
