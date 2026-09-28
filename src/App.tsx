@@ -38,8 +38,10 @@ import { SMCP_PHRASES } from './data/smcp';
 import { VHF_SCENARIOS, type VHFScenario } from './data/vhf_scenarios';
 import { EMERGENCY_SCENARIOS, type EmergencyScenario } from './data/emergency';
 import { MARITIME_15_GAMES, SAMPLE_DUEL_QUESTIONS, getQuestionsForGame, type MaritimeGameDefinition, type DuelQuestion } from './data/maritime_games';
+import { ALL_MARITIME_VOCABULARY } from './data/vocabulary';
 import {
   generateDaily25Session,
+  createSessionQuestion,
   saveStudyHistory,
   saveMasteryRecord,
   getStudyHistory,
@@ -74,7 +76,11 @@ import { UpdateModal } from './components/UpdateModal';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { soundService } from './services/soundService';
 import { Sticker3D, type StickerName } from './components/Sticker3D';
-import { getLocalDateKey } from './services/dateService';
+import { getLocalDateKey, getYesterdayDateKey, getDaysDifference } from './services/dateService';
+import { PET_SKINS, type PetSkin } from './data/petSkins';
+import { PetCompanionWidget } from './components/PetCompanionWidget';
+import { PetWardrobeModal } from './components/PetWardrobeModal';
+import { PetShimejiPatrol } from './components/PetShimejiPatrol';
 
 const DEFAULT_API_KEY = 'sk-agw-c6Xrt2h0y5mByXobFPPsNygbF9qWhL2uYL1K';
 const DEFAULT_API_URL = 'https://imgxh.eu.org/v1/chat/completions';
@@ -273,7 +279,7 @@ if (typeof window !== 'undefined') {
       localStorage.removeItem('dio_maritime_stars_nodes');
       localStorage.removeItem('dio_lesson_sessions');
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export default function App() {
@@ -297,13 +303,30 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Tẩy sạch số liệu giả lập cũ nếu có
-        if (parsed.xp === 850 || parsed.streakDays === 8 || parsed.streakDays === 3 || parsed.xp === 350) {
+        if (parsed.xp === 850 || parsed.xp === 350) {
           parsed.xp = 0;
-          parsed.streakDays = 0;
-          localStorage.setItem('dio_user_profile', JSON.stringify(parsed));
         }
         if (!parsed.coins) parsed.coins = 100;
+
+        // Cơ chế mất Streak khi bỏ lỡ ngày (Streak Break on missed days)
+        const todayKey = getLocalDateKey();
+        const yesterdayKey = getYesterdayDateKey();
+        const lastStreakDate = localStorage.getItem('dio_last_streak_date');
+
+        if (parsed.streakDays > 0) {
+          if (!lastStreakDate) {
+            // Khởi tạo mốc nối liền hôm qua cho phiên làm việc hiện tại
+            localStorage.setItem('dio_last_streak_date', yesterdayKey);
+          } else {
+            const diffDays = getDaysDifference(lastStreakDate, todayKey);
+            if (diffDays > 1) {
+              // Bỏ lỡ ít nhất 1 ngày mà không đạt 25 câu -> MẤT STREAK, RESET VỀ 0!
+              parsed.streakDays = 0;
+              localStorage.setItem('dio_streak_broken_flag', 'true');
+            }
+          }
+        }
+        localStorage.setItem('dio_user_profile', JSON.stringify(parsed));
         return parsed;
       } catch (e) { }
     }
@@ -346,6 +369,67 @@ export default function App() {
   const [selectedNode, setSelectedNode] = useState<LessonNode | null>(null);
   const [leaderboardMetric, setLeaderboardMetric] = useState<'streak' | 'vocab'>('streak');
 
+  // Pet Mascot & Skin Wardrobe State
+  const [activePetSkinId, setActivePetSkinId] = useState<string>(() => {
+    return localStorage.getItem('dio_pet_skin') || 'cadet';
+  });
+  const [unlockedPetSkinIds, setUnlockedPetSkinIds] = useState<string[]>(() => {
+    try {
+      const s = localStorage.getItem('dio_pet_unlocked_skins');
+      return s ? JSON.parse(s) : ['cadet'];
+    } catch {
+      return ['cadet'];
+    }
+  });
+  const [showPetWardrobe, setShowPetWardrobe] = useState(false);
+
+  const activePetSkin = useMemo(() => {
+    return PET_SKINS.find(s => s.id === activePetSkinId) || PET_SKINS[0];
+  }, [activePetSkinId]);
+
+  const handleEquipPetSkin = (skinId: string) => {
+    setActivePetSkinId(skinId);
+    localStorage.setItem('dio_pet_skin', skinId);
+    const skin = PET_SKINS.find(s => s.id === skinId);
+    setCustomAlert({
+      title: 'Đổi Trang Phục Thành Công! ✨',
+      message: `Dio hiện đang mặc skin "${skin?.name || skinId}". Hãy tiếp tục học để tích lũy thêm đá quý!`,
+      icon: 'info'
+    });
+  };
+
+  const handleBuyPetSkin = (skin: PetSkin) => {
+    if (userProfile.xp < skin.price) {
+      setCustomAlert({
+        title: 'Chưa Đủ Đá Quý 💎',
+        message: `Bạn cần ${skin.price} 💎 để mở khóa skin này. Hiện tại bạn có ${userProfile.xp} 💎. Hãy làm bài tập để nhận thêm nhé!`,
+        icon: 'warning'
+      });
+      return;
+    }
+
+    const nextGems = userProfile.xp - skin.price;
+    const nextUnlocked = Array.from(new Set([...unlockedPetSkinIds, skin.id]));
+
+    setUserProfile(prev => {
+      const updated = { ...prev, xp: nextGems };
+      const uid = getCurrentUserId();
+      if (uid) saveProfileToCloud(uid, updated);
+      return updated;
+    });
+
+    setUnlockedPetSkinIds(nextUnlocked);
+    setActivePetSkinId(skin.id);
+    localStorage.setItem('dio_pet_skin', skin.id);
+    localStorage.setItem('dio_pet_unlocked_skins', JSON.stringify(nextUnlocked));
+
+    setCustomAlert({
+      title: 'Mở Khóa Skin Mới Thành Công! 🎉',
+      message: `Chúc mừng bạn đã sở hữu skin "${skin.name}"! Dio đã lập tức thay trang phục mới cho bạn!`,
+      icon: 'info'
+    });
+  };
+
   // Intelligent STCW Career Progression Resolver
   const applyTreeProgression = useCallback((nodes: LessonNode[], userRank?: string): LessonNode[] => {
     const result = nodes.map(n => ({ ...n }));
@@ -372,7 +456,7 @@ export default function App() {
     // 3. User rank alignment: unlock first node of user's own STCW rank tier
     if (userRank) {
       const cleanRank = userRank.toLowerCase();
-      const rankFirstNode = result.find(n => 
+      const rankFirstNode = result.find(n =>
         n.rankTitle.toLowerCase().includes(cleanRank) || cleanRank.includes(n.rankTitle.toLowerCase())
       );
       if (rankFirstNode) {
@@ -735,6 +819,18 @@ export default function App() {
     const lastMilestoneKey = `dio_milestone_${todayKey}`;
     const celebratedKey = `dio_celebrated_${todayKey}`;
 
+    // Rollback accidental preview claim if user hasn't actually finished 25 questions
+    if (completedToday < 25 && localStorage.getItem(`dio_streak_awarded_${todayKey}`) === 'true') {
+      localStorage.removeItem(`dio_streak_awarded_${todayKey}`);
+      localStorage.removeItem(`dio_celebrated_${todayKey}`);
+      setUserProfile(prev => {
+        const fixed = { ...prev, streakDays: Math.max(0, prev.streakDays - 1) };
+        const uid = getCurrentUserId();
+        if (uid) saveProfileToCloud(uid, fixed);
+        return fixed;
+      });
+    }
+
     // Milestone thresholds:
     // Level 1: 5 questions (Bronze)
     // Level 2: 10 questions (Silver)
@@ -785,12 +881,19 @@ export default function App() {
   }, [completedToday]);
 
   const handleClaimStreakCelebration = () => {
+    if (completedToday < 25) {
+      setShowStreakCelebration(false);
+      return;
+    }
+
     const todayKey = getLocalDateKey();
     localStorage.setItem(`dio_celebrated_${todayKey}`, 'true');
 
     const awardedKey = `dio_streak_awarded_${todayKey}`;
     if (localStorage.getItem(awardedKey) !== 'true') {
       localStorage.setItem(awardedKey, 'true');
+      localStorage.setItem('dio_last_streak_date', todayKey);
+      localStorage.removeItem('dio_streak_broken_flag');
       setUserProfile(prev => {
         const nextStreak = prev.streakDays + 1;
         const updated = {
@@ -808,6 +911,15 @@ export default function App() {
     setShowStreakCelebration(false);
   };
   const [customAlert, setCustomAlert] = useState<{ title: string; message: string; icon?: string } | null>(null);
+  const [customConfirm, setCustomConfirm] = useState<{
+    title: string;
+    message: string;
+    icon?: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDestructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
   const [activeSpeakingOfficer, setActiveSpeakingOfficer] = useState<{
     title: string;
     role: string;
@@ -821,7 +933,7 @@ export default function App() {
   const speechRecognitionRef = useRef<any>(null);
   const vocabRecognitionRef = useRef<any>(null);
 
-  // Global browser alert override to avoid unreadable white-on-white WebView system dialogs
+  // Global browser alert override and streak loss detector
   useEffect(() => {
     const originalAlert = window.alert;
     window.alert = (msg: any) => {
@@ -831,6 +943,18 @@ export default function App() {
         icon: 'info'
       });
     };
+
+    if (localStorage.getItem('dio_streak_broken_flag') === 'true') {
+      localStorage.removeItem('dio_streak_broken_flag');
+      setTimeout(() => {
+        setCustomAlert({
+          title: 'Ngọn Lửa Streak Đã Tắt! 🕯️',
+          message: 'Bạn đã bỏ lỡ bài học ngày hôm qua nên chuỗi ngày đã bị reset về 0. Hãy hoàn thành 25 câu hôm nay để thắp lại ngọn lửa mới!',
+          icon: 'warning'
+        });
+      }, 600);
+    }
+
     return () => {
       window.alert = originalAlert;
     };
@@ -1371,7 +1495,45 @@ export default function App() {
   const [dailyAiResult, setDailyAiResult] = useState<AIEvaluationResult | null>(null);
 
   const launchDaily25Protocol = (mode: 'auto' | 'fluency_drill' | 'new_words' = 'auto') => {
-    const session = generateDaily25Session(currentDepartment, 5, mode, currentCourse?.terms);
+    // 1. Identify upcoming lesson terms from next node on career skill tree (Advance Preview)
+    let upcomingTerms: any[] = [];
+    let pastLearnedTerms: any[] = [];
+
+    const sameDeptNodes = skillTreeNodes.filter(n => n.department === currentDepartment);
+    let targetNode = selectedNode;
+    if (!targetNode) {
+      targetNode = sameDeptNodes.find(n => n.isUnlocked && n.stars === 0) || sameDeptNodes[0];
+    }
+    if (targetNode) {
+      const currentIndex = sameDeptNodes.findIndex(n => n.id === targetNode!.id);
+      if (currentIndex !== -1 && currentIndex + 1 < sameDeptNodes.length) {
+        upcomingTerms = sameDeptNodes[currentIndex + 1].terms || [];
+      }
+
+      // Collect all past learned terms from previous career nodes
+      const pastNodes = sameDeptNodes.filter(
+        (n, idx) => (currentIndex !== -1 && idx < currentIndex) || n.stars > 0
+      );
+      pastLearnedTerms = pastNodes
+        .filter(n => n.id !== targetNode!.id)
+        .flatMap(n => n.terms || []);
+    }
+
+    // Also include any terms already mastered or practiced in termsState
+    const masteredInTermsState = termsState
+      .filter(t => t.mastered || t.dots > 0)
+      .filter(t => !(currentCourse?.terms || []).some(ct => ct.word.toLowerCase() === t.word.toLowerCase()));
+
+    const combinedPast = [...pastLearnedTerms, ...masteredInTermsState];
+
+    const session = generateDaily25Session(
+      currentDepartment,
+      5,
+      mode,
+      currentCourse?.terms,
+      upcomingTerms,
+      combinedPast
+    );
     setDailySession(session);
     setDailyQIdx(0);
     setDailyInput('');
@@ -1409,6 +1571,8 @@ export default function App() {
     saveMasteryRecord(curQ.termId, curQ.targetWord, isCorrect, evalQualityGrade as any);
 
     if (isCorrect) {
+      const completedSentence = `${curQ.sentenceBefore} ${curQ.targetWord} ${curQ.sentenceAfter}`.replace(/\s+/g, ' ').trim();
+      saveStudyHistory([curQ.termId], dailySession.dateKey, [curQ.termId]);
       setDailyScore(prev => prev + 1);
       setCompletedToday(prev => prev + 1);
       setUserProfile(prev => ({
@@ -1416,7 +1580,47 @@ export default function App() {
         xp: prev.xp + 15,
         coins: (prev.coins || 100) + 2
       }));
-      speakText(curQ.targetWord);
+      speakText(completedSentence);
+    } else {
+      // Dynamic in-session weighting: when user answers wrongly, re-insert this term into future questions of the 25 quota
+      setDailySession(prev => {
+        if (!prev) return prev;
+        const remaining = prev.questions.length - 1 - dailyQIdx;
+        if (remaining <= 1) return prev;
+
+        const offset = Math.min(3, remaining);
+        const targetIdx = dailyQIdx + offset;
+        const updated = [...prev.questions];
+
+        const reinforcedQ = createSessionQuestion(
+          {
+            id: curQ.termId,
+            word: curQ.targetWord,
+            phonetic: curQ.phonetic,
+            partOfSpeech: 'phrase',
+            systemCategory: 'Dynamic Reinforcement',
+            cefrLevel: 'B1',
+            stcwCode: 'STCW A-II/1',
+            meaningVi: curQ.meaningVi,
+            vietnameseContext: curQ.hint,
+            exampleEn: `${curQ.sentenceBefore} ${curQ.targetWord} ${curQ.sentenceAfter}`,
+            exampleVi: curQ.vietnameseSentence,
+            department: currentDepartment,
+            collocations: [curQ.targetWord]
+          },
+          targetIdx,
+          'reinforcement',
+          ALL_MARITIME_VOCABULARY,
+          prev.day,
+          'cloze'
+        );
+
+        updated[targetIdx] = reinforcedQ;
+        return {
+          ...prev,
+          questions: updated
+        };
+      });
     }
   };
 
@@ -1554,7 +1758,10 @@ export default function App() {
       try {
         const res = await checkAppUpdate();
         if (res.hasUpdate && res.updateInfo) {
-          setAppUpdateInfo(res.updateInfo);
+          const dismissed = sessionStorage.getItem('dio_dismissed_update_version');
+          if (dismissed !== res.updateInfo.version) {
+            setAppUpdateInfo(res.updateInfo);
+          }
         }
       } catch (err) {
         console.warn('Auto update check failed', err);
@@ -1594,7 +1801,19 @@ export default function App() {
     const mergedMap = new Map<string, Term>();
     currentCourse.terms.forEach(t => mergedMap.set(t.id, t));
     MARITIME_10K_TERMS.forEach(t => mergedMap.set(t.id, t));
-    setTermsState(Array.from(mergedMap.values()));
+
+    // Đồng bộ số lần lặp lại từ Mastery Records (hệ thống 10 chấm trên toàn bộ khóa học & chức danh)
+    const records = getMasteryRecords();
+    const merged = Array.from(mergedMap.values()).map(t => {
+      const rec = records[t.id];
+      if (rec) {
+        const reps = Math.min(10, Math.max(t.dots || 0, (rec.correctCount || 0) + (rec.wrongCount || 0), rec.repetitions || 0));
+        return { ...t, dots: reps, mastered: reps >= 10 };
+      }
+      return t;
+    });
+
+    setTermsState(merged);
   }, [currentCourse]);
 
   useEffect(() => {
@@ -1647,7 +1866,7 @@ export default function App() {
     // INTELLIGENT MARITIME RELEVANCY & ACTIVE VOCABULARY SCORING
     // Check if input is empty, repetitive spam, or actual maritime response
     const isSpam = words.length > 3 && new Set(words).size === 1; // e.g. "hello hello hello..."
-    
+
     // Domain keywords check (marine, engineering, navigation, safety, alarms, valves, pressure...)
     const MARITIME_KEYWORDS = [
       'alarm', 'alarms', 'leak', 'fuel', 'generator', 'engine', 'pressure', 'temperature', 'valve', 'pump',
@@ -2128,15 +2347,21 @@ export default function App() {
   const handleToggleTermMastery = (termId: string) => {
     setTermsState(prev => prev.map(t => {
       if (t.id === termId) {
-        const nextDots = t.dots >= 5 ? 1 : t.dots + 1;
-        return { ...t, dots: nextDots, mastered: nextDots >= 4 };
+        const nextDots = Math.min(10, (t.dots || 0) + 1);
+        saveMasteryRecord(t.id, t.word, true, 4);
+        return { ...t, dots: nextDots, mastered: nextDots >= 10 };
       }
       return t;
     }));
   };
 
   const handleResetTermProgress = (termId: string) => {
-    setTermsState(prev => prev.map(t => t.id === termId ? { ...t, dots: 1, mastered: false } : t));
+    setTermsState(prev => prev.map(t => t.id === termId ? { ...t, dots: 0, mastered: false } : t));
+    try {
+      const records = getMasteryRecords();
+      delete records[termId];
+      localStorage.setItem('dio_vocab_mastery_records', JSON.stringify(records));
+    } catch (_) { }
   };
 
   const speakText = (text: string, audioKey?: string) => {
@@ -2177,7 +2402,15 @@ export default function App() {
   if (!hasSeenOnboarding) {
     return (
       <OnboardingScreen
-        onFinish={() => {
+        onFinish={({ department, rank, dailyGoal }) => {
+          localStorage.setItem('dio_dept', department);
+          localStorage.setItem('dio_daily_goal', String(dailyGoal));
+          setCurrentDepartment(department);
+          setUserProfile(profile => {
+            const next = { ...profile, department, rank };
+            localStorage.setItem('dio_user_profile', JSON.stringify(next));
+            return next;
+          });
           localStorage.setItem('dio_has_seen_onboarding', 'true');
           setHasSeenOnboarding(true);
         }}
@@ -2842,12 +3075,12 @@ export default function App() {
                 {/* Top Card: Sentence with Fill-in-the-Blank */}
                 <div className="blank-sentence-card">
                   <div className="blank-card-top-row">
-                    {/* 5 Dots Indicator */}
-                    <div className="blank-dots-row">
-                      {[1, 2, 3, 4, 5].map((d) => (
+                    {/* 10 Dots Indicator */}
+                    <div className="blank-dots-row" title={`Độ lặp lại: ${currentCourse.terms[vocabIndex]?.dots || 0}/10 lần`}>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => (
                         <div
                           key={d}
-                          className={`blank-dot ${d <= (currentCourse.terms[vocabIndex]?.dots || 4) ? 'filled' : ''}`}
+                          className={`blank-dot ${d <= (currentCourse.terms[vocabIndex]?.dots || 0) ? 'filled' : ''}`}
                         />
                       ))}
                     </div>
@@ -2996,10 +3229,18 @@ export default function App() {
               <button
                 className="vocab-study-close-btn"
                 onClick={() => {
-                  if (confirm('Bạn có muốn tạm dừng phiên học giao thức 25 câu hôm nay không?')) {
-                    setActiveMode('none');
-                    window.speechSynthesis.cancel();
-                  }
+                  setCustomConfirm({
+                    title: 'Tạm Dừng Phiên Học?',
+                    message: 'Bạn có muốn tạm dừng phiên học giao thức 25 câu hôm nay không? Điểm số và các câu bạn vừa hoàn thành đã được hệ thống lưu lại an toàn.',
+                    icon: 'hourglass',
+                    confirmText: 'Tạm dừng',
+                    cancelText: 'Học tiếp',
+                    isDestructive: true,
+                    onConfirm: () => {
+                      setActiveMode('none');
+                      window.speechSynthesis.cancel();
+                    }
+                  });
                 }}
                 title="Thoát phiên học"
               >
@@ -3011,7 +3252,7 @@ export default function App() {
                   Giao Thức Lặp Lại 25 Câu • Ngày {dailySession.day}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>
-                  5 từ mới + từ khó lặp lại ({dailySession.newTermsCount} mới • {dailySession.reviewTermsCount} ôn tập)
+                  {dailySession.newTermsCount} từ bài này • {dailySession.previewTermsCount || 0} từ bài tới • {dailySession.reviewTermsCount} từ ôn tập
                 </div>
               </div>
 
@@ -3036,8 +3277,15 @@ export default function App() {
                 {/* Meta indicator */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span className={`daily-q-type-badge ${dailySession.questions[dailyQIdx].isReview ? 'review' : 'new'}`}>
-                      {dailySession.questions[dailyQIdx].isReview ? '🔄 TỪ KHÓ ĐÃ HỌC (ÔN TẬP)' : '⭐ TỪ MỚI HÔM NAY'}
+                    <span className={`daily-q-type-badge ${dailySession.questions[dailyQIdx].isReinforcement ? 'reinforcement' :
+                        dailySession.questions[dailyQIdx].isPreview ? 'preview' :
+                          dailySession.questions[dailyQIdx].isReview ? 'review' : 'new'
+                      }`}>
+                      {dailySession.questions[dailyQIdx].tagLabel || (
+                        dailySession.questions[dailyQIdx].isReinforcement ? '⚡ CỦNG CỐ TỪ VỪA LÀM SAI' :
+                          dailySession.questions[dailyQIdx].isPreview ? '🔭 TỪ BÀI TIẾP THEO (KHÁM PHÁ TRƯỚC)' :
+                            dailySession.questions[dailyQIdx].isReview ? '🔄 TỪ ĐÃ HỌC (ÔN TẬP SM-2)' : '⭐ TỪ BÀI HIỆN TẠI (GHI NHỚ)'
+                      )}
                     </span>
                     {(() => {
                       const q = dailySession.questions[dailyQIdx];
@@ -3148,6 +3396,24 @@ export default function App() {
                       {dailySession.questions[dailyQIdx].explanation}
                     </div>
 
+                    {((dailySession.questions[dailyQIdx].questionType === 'cloze' && (dailyAiResult ? dailyAiResult.isCorrect : dailyInput.trim().toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase())) || dailySelectedOpt?.toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase()) && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #BFDBFE' }}>
+                        <button
+                          type="button"
+                          onClick={() => speakText(`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim())}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, color: '#0369A1', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                        >
+                          <Volume2 size={16} /> Nghe lại toàn câu
+                        </button>
+                        <div style={{ marginTop: 8, color: '#075985', fontSize: '0.96rem', fontWeight: 700, lineHeight: 1.55 }}>
+                          {`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim()}
+                        </div>
+                        <div style={{ marginTop: 4, color: '#475569', fontSize: '0.86rem', lineHeight: 1.45 }}>
+                          {dailySession.questions[dailyQIdx].vietnameseSentence || dailySession.questions[dailyQIdx].meaningVi}
+                        </div>
+                      </div>
+                    )}
+
                     {dailyAiResult?.mnemonic && (
                       <div className="flashcard-ai-mnemonic-card" style={{ marginTop: 8 }}>
                         {dailyAiResult.mnemonic}
@@ -3224,12 +3490,21 @@ export default function App() {
             <div className="marlins-exam-topbar">
               <button
                 onClick={() => {
-                  if (confirm('Bạn có chắc muốn thoát bài thi Marlins? Kết quả thi sẽ không được lưu.')) {
-                    setActiveMode('none');
-                    window.speechSynthesis.cancel();
-                  }
+                  setCustomConfirm({
+                    title: 'Thoát Bài Thi Marlins?',
+                    message: 'Bạn có chắc muốn thoát bài thi Marlins? Kết quả bài làm hiện tại sẽ không được lưu.',
+                    icon: 'warning',
+                    confirmText: 'Thoát bài thi',
+                    cancelText: 'Làm tiếp',
+                    isDestructive: true,
+                    onConfirm: () => {
+                      setActiveMode('none');
+                      window.speechSynthesis.cancel();
+                    }
+                  });
                 }}
                 style={{ background: '#F1F5F9', border: 'none', borderRadius: 12, padding: 8, cursor: 'pointer' }}
+                title="Thoát bài thi"
               >
                 <ArrowLeft size={18} color="#475569" />
               </button>
@@ -3721,19 +3996,26 @@ export default function App() {
 
                   <div className="dio-stats-cluster">
                     <div
-                      className="dio-stat-pill streak"
-                      title="Chuỗi ngày liên tiếp (Bấm để xem các mốc)"
+                      className={`dio-stat-pill streak ${completedToday > 0 ? 'lit' : 'unlit'}`}
+                      title={completedToday > 0 ? `Chuỗi ${userProfile.streakDays} ngày • Đã giữ lửa hôm nay (${completedToday}/25 câu)!` : `Chuỗi ${userProfile.streakDays} ngày • Chưa học hôm nay (Lửa đang le lói)`}
                       onClick={() => setShowStreakModal(true)}
                       style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                     >
-                      <Sticker3D name="flame" size={20} />
+                      <div className="streak-pill-flame">
+                        <Sticker3D name="flame" size={20} />
+                      </div>
                       <span>{userProfile.streakDays}</span>
                     </div>
                     <div className="dio-stat-pill hearts" title="Trái tim năng lượng" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Sticker3D name="heart" size={20} />
                       <span>{userProfile.hearts}</span>
                     </div>
-                    <div className="dio-stat-pill xp" title="Kinh nghiệm tích lũy" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div
+                      className="dio-stat-pill xp"
+                      title="Kinh nghiệm & Đá quý tích lũy (Bấm để đổi Skin cho Pet Dio)"
+                      onClick={() => setShowPetWardrobe(true)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                    >
                       <Sticker3D name="gem" size={20} />
                       <span>{userProfile.xp}</span>
                     </div>
@@ -3759,6 +4041,13 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                {/* DIO PET MASCOT COMPANION WIDGET */}
+                <PetCompanionWidget
+                  skin={activePetSkin}
+                  currentGems={userProfile.xp}
+                  onOpenWardrobe={() => setShowPetWardrobe(true)}
+                />
 
                 {/* Offline Sea-Voyage Mode Banner */}
                 {!isOnline && (
@@ -3933,6 +4222,7 @@ export default function App() {
                   <button
                     className={`dio-dept-btn ${currentDepartment === 'engine' ? 'active' : ''}`}
                     onClick={() => handleSwitchDepartment('engine')}
+                    onPointerDown={() => soundService.playPop()}
                   >
                     <Wrench size={16} />
                     <span>Ban Máy (Engineering)</span>
@@ -3940,84 +4230,103 @@ export default function App() {
                   <button
                     className={`dio-dept-btn ${currentDepartment === 'deck' ? 'active' : ''}`}
                     onClick={() => handleSwitchDepartment('deck')}
+                    onPointerDown={() => soundService.playPop()}
                   >
                     <Compass size={16} />
                     <span>Ban Boong (Navigation)</span>
                   </button>
                 </div>
 
-                {/* MARLINS ENGLISH TEST EXAM BANNER */}
-                <div className="dio-marlins-banner">
-                  <div className="dio-marlins-header">
-                    <Sticker3D name="bronze-medal" size={36} />
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <h4 className="dio-marlins-title">Marlins English Test</h4>
-                        <span className="dio-marlins-badge">STCW 78/2010</span>
+                {/* TODAY'S VOYAGE: Dynamic progression following skill tree */}
+                {(() => {
+                  const deptNodes = skillTreeNodes.filter(n => n.department === currentDepartment);
+                  const activeNodeIdx = deptNodes.findIndex(n => n.isUnlocked && n.stars < 3);
+                  const voyageNode = (activeNodeIdx !== -1 ? deptNodes[activeNodeIdx] : deptNodes[deptNodes.length - 1]) || skillTreeNodes[0];
+                  const voyageIdx = activeNodeIdx !== -1 ? activeNodeIdx : Math.max(0, deptNodes.length - 1);
+                  const isAllDeptCompleted = activeNodeIdx === -1 && deptNodes.length > 0 && deptNodes.every(n => n.stars >= 3);
+
+                  return (
+                    <section className="dio-voyage" aria-labelledby="today-voyage-title">
+                      <div className="dio-voyage-kicker">
+                        <span>HẢI TRÌNH HÔM NAY</span>
+                        <span className="dio-voyage-xp">+{isAllDeptCompleted ? '100' : '20'} XP</span>
                       </div>
-                      <p className="dio-marlins-sub">Mô phỏng kỳ thi chứng chỉ thuyền viên quốc tế (45 phút, 5 kỹ năng).</p>
-                    </div>
-                  </div>
-                  <button className="dio-marlins-btn" onClick={launchMarlinsExam}>
-                    <span>Bắt đầu thi thử Marlins ngay</span>
-                    <ChevronRight size={18} />
+                      <div className="dio-voyage-heading">
+                        <div className="dio-voyage-orb">
+                          <Sticker3D emoji={voyageNode.icon || '⚓'} size={34} />
+                        </div>
+                        <div>
+                          <p>CHẶNG {String(voyageIdx + 1).padStart(2, '0')} · {currentDepartment === 'engine' ? 'ENGINE ROOM' : 'BRIDGE WATCH'}</p>
+                          <h2 id="today-voyage-title">{voyageNode.title}</h2>
+                          <span>
+                            {voyageNode.stars > 0 ? `Đã đạt ${voyageNode.stars}/3 sao · Ôn tập` : `${voyageNode.terms?.length || 8} từ mới · STCW ${voyageNode.rankTitle}`}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="dio-voyage-route" aria-label="Tiến trình bài học">
+                        {voyageIdx > 0 && (
+                          <>
+                            <span className="is-done" title="Bài trước đã hoàn thành">✓</span>
+                            <i />
+                          </>
+                        )}
+                        <span className="is-current" title={`Bài hiện tại: ${voyageNode.title}`}>{voyageIdx + 1}</span>
+                        <i />
+                        <span>{voyageIdx + 2}</span>
+                        <i />
+                        <span>★</span>
+                      </div>
+                      <button
+                        className="dio-voyage-start"
+                        onClick={() => launchIntegratedNodeLesson(voyageNode)}
+                        onPointerDown={() => soundService.playClick()}
+                      >
+                        VÀO HẢI TRÌNH (BÀI {voyageIdx + 1}) <ChevronRight size={20} />
+                      </button>
+                    </section>
+                  );
+                })()}
+
+                <section className="dio-tool-dock" aria-label="Công cụ huấn luyện">
+                  <button
+                    className="dio-tool-item"
+                    onClick={() => launchVhfScenario(VHF_SCENARIOS[0])}
+                    onPointerDown={() => soundService.playPop()}
+                  >
+                    <Sticker3D name="radio" size={27} /><span>VHF<br />Radio</span>
                   </button>
-                </div>
+                  <button
+                    className="dio-tool-item danger"
+                    onClick={() => launchEmergencyScenario(EMERGENCY_SCENARIOS[0])}
+                    onPointerDown={() => soundService.playPop()}
+                  >
+                    <Sticker3D name="siren" size={27} /><span>Khẩn<br />cấp</span>
+                  </button>
+                  <button
+                    className="dio-tool-item"
+                    onClick={() => { setActiveTab('learn'); setLearnSubTab('smcp'); }}
+                    onPointerDown={() => soundService.playPop()}
+                  >
+                    <Sticker3D name="psc-clipboard" size={27} /><span>Mẫu<br />SMCP</span>
+                  </button>
+                  <button
+                    className="dio-tool-item"
+                    onClick={() => setActiveTab('ai')}
+                    onPointerDown={() => soundService.playPop()}
+                  >
+                    <Sticker3D name="chief-engineer" size={27} /><span>AI<br />Luyện nói</span>
+                  </button>
+                </section>
 
-                {/* 3D TACTILE MARITIME QUICK ACTION TILES */}
-                <div className="home-quick-grid">
-                  <div className="home-quick-card-3d vhf-theme" onClick={() => launchVhfScenario(VHF_SCENARIOS[0])}>
-                    <div className="quick-card-top-row">
-                      <div className="quick-3d-icon-badge" style={{ background: 'transparent' }}>
-                        <Sticker3D name="radio" size={26} />
-                      </div>
-                      <span className="quick-pill-tag">KÊNH 16</span>
-                    </div>
-                    <div className="home-quick-info">
-                      <h5>Đài VHF Marine</h5>
-                      <p>Kênh 16, 12 VTS, 08 COLREGs</p>
-                    </div>
-                  </div>
-
-                  <div className="home-quick-card-3d emergency-theme" onClick={() => launchEmergencyScenario(EMERGENCY_SCENARIOS[0])}>
-                    <div className="quick-card-top-row">
-                      <div className="quick-3d-icon-badge" style={{ background: 'transparent' }}>
-                        <Sticker3D name="siren" size={26} />
-                      </div>
-                      <span className="quick-pill-tag danger">MAYDAY</span>
-                    </div>
-                    <div className="home-quick-info">
-                      <h5>SOLAS Khẩn cấp</h5>
-                      <p>Cháy hầm máy, MOB, Mắc cạn</p>
-                    </div>
-                  </div>
-
-                  <div className="home-quick-card-3d smcp-theme" onClick={() => { setActiveTab('learn'); setLearnSubTab('smcp'); }}>
-                    <div className="quick-card-top-row">
-                      <div className="quick-3d-icon-badge" style={{ background: 'transparent' }}>
-                        <Sticker3D name="psc-clipboard" size={26} />
-                      </div>
-                      <span className="quick-pill-tag warning">8 MẪU</span>
-                    </div>
-                    <div className="home-quick-info">
-                      <h5>IMO SMCP Chuẩn</h5>
-                      <p>Instruction, Warning, Advice...</p>
-                    </div>
-                  </div>
-
-                  <div className="home-quick-card-3d ai-theme" onClick={() => setActiveTab('ai')}>
-                    <div className="quick-card-top-row">
-                      <div className="quick-3d-icon-badge" style={{ background: 'transparent' }}>
-                        <Sticker3D name="chief-engineer" size={26} />
-                      </div>
-                      <span className="quick-pill-tag success">LIVE AI</span>
-                    </div>
-                    <div className="home-quick-info">
-                      <h5>10 Thuyền trưởng AI</h5>
-                      <p>Phỏng vấn SIRE, PSC Inspection</p>
-                    </div>
-                  </div>
-                </div>
+                <button
+                  className="dio-exam-strip"
+                  onClick={launchMarlinsExam}
+                  onPointerDown={() => soundService.playClick()}
+                >
+                  <Sticker3D name="bronze-medal" size={30} />
+                  <span><b>Marlins English Test</b><small>Thi thử STCW · 45 phút</small></span>
+                  <ChevronRight size={20} />
+                </button>
 
                 {/* DUOLINGO STYLE MARITIME CAREER SKILL TREE */}
                 <div className="duolingo-tree-section">
@@ -4112,7 +4421,7 @@ export default function App() {
                           const reqVocab = getRankRequiredVocab(rankTitle);
                           const userRank = userProfile.rank || '';
                           const isUserRankOrLower = userRank && (
-                            rankTitle.toLowerCase().includes(userRank.toLowerCase()) || 
+                            rankTitle.toLowerCase().includes(userRank.toLowerCase()) ||
                             userRank.toLowerCase().includes(rankTitle.toLowerCase()) ||
                             (userRank.includes('Motorman') && rankTitle.includes('Wiper')) ||
                             (userRank.includes('Thợ máy') && rankTitle.includes('Lau máy')) ||
@@ -4143,6 +4452,7 @@ export default function App() {
                                 {rankNodes.map((node, nIdx) => {
                                   const zigzagPos = nIdx % 3 === 0 ? 'pos-center' : nIdx % 3 === 1 ? 'pos-left' : 'pos-right';
                                   const effectiveUnlocked = isGated ? false : node.isUnlocked;
+                                  const isNextActive = effectiveUnlocked && node.stars === 0 && (!rankNodes[nIdx - 1] || rankNodes[nIdx - 1].stars > 0);
 
                                   return (
                                     <div
@@ -4160,7 +4470,22 @@ export default function App() {
                                         }
                                       }}
                                     >
-                                      <button className={`tree-node-circle ${!effectiveUnlocked ? 'locked' : ''}`}>
+                                      {isNextActive && (
+                                        <div className="duo-active-bubble">
+                                          <span>BẮT ĐẦU</span>
+                                          <div className="duo-bubble-arrow" />
+                                        </div>
+                                      )}
+                                      <button
+                                        className={`tree-node-circle ${!effectiveUnlocked ? 'locked' : ''}`}
+                                        onPointerDown={() => {
+                                          if (effectiveUnlocked && !isGated) {
+                                            soundService.playPop();
+                                          } else {
+                                            soundService.playWrong();
+                                          }
+                                        }}
+                                      >
                                         {effectiveUnlocked ? (
                                           <Sticker3D emoji={node.icon} size={30} />
                                         ) : (
@@ -4606,7 +4931,7 @@ export default function App() {
                               const reqVocab = getRankRequiredVocab(rankTitle);
                               const userRank = userProfile.rank || '';
                               const isUserRankOrLower = userRank && (
-                                rankTitle.toLowerCase().includes(userRank.toLowerCase()) || 
+                                rankTitle.toLowerCase().includes(userRank.toLowerCase()) ||
                                 userRank.toLowerCase().includes(rankTitle.toLowerCase()) ||
                                 (userRank.includes('Motorman') && rankTitle.includes('Wiper')) ||
                                 (userRank.includes('Thợ máy') && rankTitle.includes('Lau máy')) ||
@@ -4635,6 +4960,7 @@ export default function App() {
                                     {rankNodes.map((node, nIdx) => {
                                       const zigzagPos = nIdx % 3 === 0 ? 'pos-center' : nIdx % 3 === 1 ? 'pos-left' : 'pos-right';
                                       const effectiveUnlocked = isGated ? false : node.isUnlocked;
+                                      const isNextActive = effectiveUnlocked && node.stars === 0 && (!rankNodes[nIdx - 1] || rankNodes[nIdx - 1].stars > 0);
 
                                       return (
                                         <div
@@ -4652,7 +4978,13 @@ export default function App() {
                                             }
                                           }}
                                         >
-                                          <button className={`tree-node-circle ${!effectiveUnlocked ? 'locked' : ''}`}>
+                                          {isNextActive && (
+                                         <div className="duo-active-bubble">
+                                           <span>BẮT ĐẦU</span>
+                                           <div className="duo-bubble-arrow" />
+                                         </div>
+                                       )}
+                                       <button className={`tree-node-circle ${!effectiveUnlocked ? 'locked' : ''}`}>
                                             {effectiveUnlocked ? (
                                               <span>{node.icon}</span>
                                             ) : (
@@ -4725,59 +5057,74 @@ export default function App() {
                       />
                     </div>
 
-                    {filteredVocab.map((item) => (
-                      <div key={item.id} className="vocab-card">
-                        <div className="vocab-card-header">
-                          <div className="vocab-dots-row" title={`Độ thuộc: ${item.dots}/5`}>
-                            {[1, 2, 3, 4, 5].map(d => (
-                              <div key={d} className={`vocab-dot ${d <= item.dots ? 'filled' : ''}`} />
-                            ))}
-                          </div>
+                    {filteredVocab.map((item) => {
+                      const isLearned = (item.dots || 0) > 0;
+                      const isMaxed = (item.dots || 0) >= 10;
+                      return (
+                        <div key={item.id} className="vocab-card">
+                          <div className="vocab-card-header">
+                            <div className="vocab-dots-row" title={`Số lần lặp lại: ${item.dots || 0}/10 lần`}>
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(d => (
+                                <div
+                                  key={d}
+                                  className={`vocab-dot ${d <= (item.dots || 0) ? (isMaxed ? 'maxed' : 'filled') : ''}`}
+                                />
+                              ))}
+                              <span className={`vocab-dots-count ${isMaxed ? 'maxed' : isLearned ? 'learned' : ''}`}>
+                                {item.dots || 0}/10
+                              </span>
+                            </div>
 
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button
-                              className="vocab-reset-btn"
-                              onClick={() => handleToggleTermMastery(item.id)}
-                              style={{ background: item.dots >= 4 ? '#DCFCE7' : '#F1F5F9', color: item.dots >= 4 ? '#16A34A' : '#64748B' }}
-                            >
-                              {item.dots >= 4 ? '✓ Đã thuộc' : '+1 Điểm thuộc'}
-                            </button>
-
-                            <button
-                              className="vocab-reset-btn"
-                              onClick={() => handleResetTermProgress(item.id)}
-                              title="Đặt lại tiến độ"
-                            >
-                              <RotateCcw size={12} />
-                            </button>
-                          </div>
-
-                          {(() => {
-                            const isSpeaking = activeAudioKey === `vocab-${item.id}`;
-                            return (
+                            <div style={{ display: 'flex', gap: 6 }}>
                               <button
-                                className={`vocab-play-btn ${isSpeaking ? 'playing' : ''}`}
-                                onClick={() => speakText(`${item.word}. ${item.example}`, `vocab-${item.id}`)}
-                                title={isSpeaking ? "Dừng nghe" : "Phát âm từ & câu ví dụ"}
+                                className="vocab-reset-btn"
+                                onClick={() => handleToggleTermMastery(item.id)}
+                                style={{
+                                  background: isMaxed ? '#DCFCE7' : isLearned ? '#FEF2F2' : '#F1F5F9',
+                                  color: isMaxed ? '#16A34A' : isLearned ? '#DC2626' : '#64748B',
+                                  fontWeight: 700
+                                }}
                               >
-                                {isSpeaking ? (
-                                  <span className="audio-wave-anim">
-                                    <span className="bar bar-1"></span>
-                                    <span className="bar bar-2"></span>
-                                    <span className="bar bar-3"></span>
-                                  </span>
-                                ) : (
-                                  <Play size={14} fill="#2563EB" />
-                                )}
+                                {isMaxed ? '✓ Đã thuộc (10/10)' : `+1 Lần học (${item.dots || 0}/10)`}
                               </button>
-                            );
-                          })()}
-                        </div>
 
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                          <div className="vocab-word-title">{item.word}</div>
-                          <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{item.phonetic}</span>
-                        </div>
+                              <button
+                                className="vocab-reset-btn"
+                                onClick={() => handleResetTermProgress(item.id)}
+                                title="Đặt lại tiến độ từ này về 0"
+                              >
+                                <RotateCcw size={12} />
+                              </button>
+                            </div>
+
+                            {(() => {
+                              const isSpeaking = activeAudioKey === `vocab-${item.id}`;
+                              return (
+                                <button
+                                  className={`vocab-play-btn ${isSpeaking ? 'playing' : ''}`}
+                                  onClick={() => speakText(`${item.word}. ${item.example}`, `vocab-${item.id}`)}
+                                  title={isSpeaking ? "Dừng nghe" : "Phát âm từ & câu ví dụ"}
+                                >
+                                  {isSpeaking ? (
+                                    <span className="audio-wave-anim">
+                                      <span className="bar bar-1"></span>
+                                      <span className="bar bar-2"></span>
+                                      <span className="bar bar-3"></span>
+                                    </span>
+                                  ) : (
+                                    <Play size={14} fill="#2563EB" />
+                                  )}
+                                </button>
+                              );
+                            })()}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                            <div className={`vocab-word-title ${isLearned ? 'learned' : ''}`}>
+                              {item.word}
+                            </div>
+                            <span style={{ fontSize: '0.75rem', color: '#64748B' }}>{item.phonetic}</span>
+                          </div>
 
                         <div className="vocab-sentence">{item.example}</div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
@@ -4794,7 +5141,8 @@ export default function App() {
                           </button>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 )}
 
@@ -6257,12 +6605,26 @@ export default function App() {
         </div>
       )}
 
+      {/* DIO SCREEN PET SHIMEJI PATROL (Tuần tra đáy màn hình & nhắc bài học) */}
+      {activeMode === 'none' && !showPetWardrobe && (
+        <PetShimejiPatrol
+          skin={activePetSkin}
+          currentGems={userProfile.xp}
+          onStudyClick={() => {
+            setActiveTab('learn');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onWardrobeClick={() => setShowPetWardrobe(true)}
+        />
+      )}
+
       {/* Bottom Navigation Bar (Master Plan Section 4: 5 Core Tabs) */}
       {activeMode === 'none' && (
         <div className="peaktalk-bottom-nav">
           <button
             className={`nav-bottom-item ${activeTab === 'home' ? 'active' : ''}`}
             onClick={() => setActiveTab('home')}
+            onPointerDown={() => soundService.playClick()}
           >
             <Home size={22} />
             <span>Trang chủ</span>
@@ -6271,6 +6633,7 @@ export default function App() {
           <button
             className={`nav-bottom-item ${activeTab === 'learn' ? 'active' : ''}`}
             onClick={() => setActiveTab('learn')}
+            onPointerDown={() => soundService.playClick()}
           >
             <BookOpen size={22} />
             <span>Học tập</span>
@@ -6279,6 +6642,7 @@ export default function App() {
           <button
             className={`nav-bottom-item ${activeTab === 'practice' ? 'active' : ''}`}
             onClick={() => setActiveTab('practice')}
+            onPointerDown={() => soundService.playClick()}
           >
             <Radio size={22} />
             <span>Luyện tập</span>
@@ -6287,6 +6651,7 @@ export default function App() {
           <button
             className={`nav-bottom-item ${activeTab === 'ai' ? 'active' : ''}`}
             onClick={() => setActiveTab('ai')}
+            onPointerDown={() => soundService.playClick()}
           >
             <Bot size={22} />
             <span>AI Đàm thoại</span>
@@ -6295,6 +6660,7 @@ export default function App() {
           <button
             className={`nav-bottom-item ${activeTab === 'profile' ? 'active' : ''}`}
             onClick={() => setActiveTab('profile')}
+            onPointerDown={() => soundService.playClick()}
           >
             <User size={22} />
             <span>Hồ sơ STCW</span>
@@ -6306,7 +6672,12 @@ export default function App() {
       {appUpdateInfo && (
         <UpdateModal
           updateInfo={appUpdateInfo}
-          onClose={() => setAppUpdateInfo(null)}
+          onClose={() => {
+            if (appUpdateInfo) {
+              sessionStorage.setItem('dio_dismissed_update_version', appUpdateInfo.version);
+            }
+            setAppUpdateInfo(null);
+          }}
         />
       )}
 
@@ -6411,12 +6782,16 @@ export default function App() {
           <div className="streak-celebration-dialog" style={{ textAlign: 'left', maxWidth: 420, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: '1.5px solid #FDBA74', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className={`streak-modal-flame-box ${completedToday >= 25 ? 'lit' : 'unlit'}`}>
                   <Sticker3D name="flame" size={30} />
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#0F172A' }}>Chuỗi Ngày Streak</h3>
-                  <span style={{ fontSize: '0.8rem', color: '#EA580C', fontWeight: 800 }}>{userProfile.streakDays} ngày liên tiếp 🔥</span>
+                  {completedToday >= 25 ? (
+                    <span style={{ fontSize: '0.8rem', color: '#EA580C', fontWeight: 800 }}>{userProfile.streakDays} ngày liên tiếp • Đã giữ lửa 🔥</span>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 800 }}>{userProfile.streakDays} ngày liên tiếp • Lửa đang le lói 🕯️</span>
+                  )}
                 </div>
               </div>
               <button
@@ -6425,6 +6800,33 @@ export default function App() {
               >
                 <X size={18} color="#475569" />
               </button>
+            </div>
+
+            {/* Duolingo 7-Day Streak Week Row */}
+            <div className="duo-streak-week-row">
+              {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day, idx) => {
+                const todayIdx = (new Date().getDay() + 6) % 7; // 0 = Mon, 6 = Sun
+                const isPastDayInStreak = idx < todayIdx && (todayIdx - idx) < userProfile.streakDays;
+                const isTodayLit = idx === todayIdx && completedToday >= 25;
+                const isTodayPending = idx === todayIdx && completedToday < 25;
+                const isLit = isPastDayInStreak || isTodayLit;
+                return (
+                  <div key={day} className={`duo-streak-day-item ${isLit ? 'lit' : isTodayPending ? 'pending' : ''}`}>
+                    <span className="day-name">{day}</span>
+                    <div className="day-circle">
+                      {isLit ? (
+                        <Sticker3D name="flame" size={20} />
+                      ) : isTodayPending ? (
+                        <div className="day-pending-flame" title="Chưa giữ lửa hôm nay">
+                          <Sticker3D name="flame" size={17} />
+                        </div>
+                      ) : (
+                        <div className="day-dot" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Today's Goal Progress */}
@@ -6601,6 +7003,7 @@ export default function App() {
                 soundService.playCelebrationFanfare();
                 setShowStreakCelebration(true);
               }}
+              onPointerDown={() => soundService.playClick()}
               className="streak-claim-btn"
               style={{ width: '100%', marginTop: 16, padding: '13px 18px', fontSize: '0.92rem', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
             >
@@ -6609,6 +7012,18 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* 4. PET WARDROBE & SKIN SHOP MODAL */}
+      {showPetWardrobe && (
+        <PetWardrobeModal
+          currentGems={userProfile.xp}
+          activeSkinId={activePetSkinId}
+          unlockedSkinIds={unlockedPetSkinIds}
+          onClose={() => setShowPetWardrobe(false)}
+          onEquipSkin={handleEquipPetSkin}
+          onBuySkin={handleBuyPetSkin}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -6662,6 +7077,83 @@ export default function App() {
             >
               Đồng Ý
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DIO TALK CUSTOM CONFIRM MODAL (Replaces unreadable WebView window.confirm) */}
+      {/* ========================================================================= */}
+      {customConfirm && (
+        <div
+          className="model-modal-overlay"
+          onClick={() => setCustomConfirm(null)}
+          style={{ zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#FFFFFF',
+              borderRadius: 24,
+              padding: '24px 20px 20px 20px',
+              maxWidth: 360,
+              width: '100%',
+              boxShadow: '0 20px 45px rgba(15, 23, 42, 0.25)',
+              border: '1.5px solid #E2E8F0',
+              textAlign: 'center',
+              animation: 'popIn 0.22s ease-out'
+            }}
+          >
+            <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: customConfirm.isDestructive ? '#FEE2E2' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: customConfirm.isDestructive ? '2px solid #FECACA' : '2px solid #BFDBFE' }}>
+                <Clock size={29} strokeWidth={2.4} aria-hidden="true" />
+              </div>
+            </div>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
+              {customConfirm.title}
+            </h3>
+            <p style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.55, whiteSpace: 'pre-line', marginBottom: 20, fontWeight: 500 }}>
+              {customConfirm.message}
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setCustomConfirm(null)}
+                style={{
+                  flex: 1,
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  background: '#F1F5F9',
+                  color: '#475569',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  border: '1.5px solid #CBD5E1',
+                  cursor: 'pointer'
+                }}
+              >
+                {customConfirm.cancelText || 'Tiếp tục'}
+              </button>
+              <button
+                onClick={() => {
+                  const action = customConfirm.onConfirm;
+                  setCustomConfirm(null);
+                  action();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px 14px',
+                  borderRadius: 14,
+                  background: customConfirm.isDestructive ? 'linear-gradient(135deg, #EF4444, #DC2626)' : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                  border: 'none',
+                  cursor: 'pointer',
+                  boxShadow: customConfirm.isDestructive ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(37, 99, 235, 0.3)'
+                }}
+              >
+                {customConfirm.confirmText || 'Xác nhận'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -17,6 +17,9 @@ export interface DailySessionQuestion {
   correctAnswer: string;
   explanation: string;
   isReview: boolean;
+  isPreview?: boolean;
+  isReinforcement?: boolean;
+  tagLabel?: string;
   dayLearned: number;
 }
 
@@ -24,12 +27,22 @@ export interface DailyStudySession {
   day: number;
   dateKey: string;
   newTermsCount: number;
+  previewTermsCount: number;
   reviewTermsCount: number;
   totalQuestions: number; // 25 questions
   newTermIds: string[];
+  previewTermIds: string[];
   reviewTermIds: string[];
   questions: DailySessionQuestion[];
 }
+
+export const LEITNER_INTERVALS: Record<number, number> = {
+  1: 1,   // Box 1: 1 ngày (Học hôm nay, mai ôn ngay)
+  2: 3,   // Box 2: 3 ngày
+  3: 7,   // Box 3: 7 ngày (Bắt đầu ngấm vào trí nhớ dài hạn)
+  4: 14,  // Box 4: 14 ngày (Đã thuộc vững)
+  5: 30   // Box 5: 30 ngày (Mastered - rà soát phản xạ)
+};
 
 export interface TermMasteryRecord {
   termId: string;
@@ -39,6 +52,11 @@ export interface TermMasteryRecord {
   masteryScore: number; // 0 - 100
   lastReviewed: string; // ISO string
   needsReview: boolean;
+
+  // 5-Box Leitner Architecture
+  box: 1 | 2 | 3 | 4 | 5;
+  consecutiveCorrect: number;
+  status: 'NEW' | 'LEARNING' | 'MASTERED';
 
   // Scientific Spaced Repetition (SM-2 + Ebbinghaus Curve)
   repetitions: number;      // Consecutive successful recall count
@@ -208,6 +226,10 @@ export function saveMasteryRecord(
     grade = isCorrectOrGrade ? 4 : 1;
   }
 
+  if ((current as any).box === undefined) current.box = 1;
+  if ((current as any).consecutiveCorrect === undefined) current.consecutiveCorrect = 0;
+  if (!current.status) current.status = 'NEW';
+
   const sm2Result = calculateSM2(
     current.repetitions || 0,
     current.easeFactor || 2.5,
@@ -217,25 +239,41 @@ export function saveMasteryRecord(
 
   current.repetitions = sm2Result.repetitions;
   current.easeFactor = sm2Result.easeFactor;
-  current.intervalDays = sm2Result.intervalDays;
-  current.nextReviewDate = sm2Result.nextReviewDate;
   current.lastQualityGrade = grade;
 
   if (grade >= 3) {
+    // A. Nếu trả lời ĐÚNG (Pass): consecutive_correct += 1, thăng cấp box, next_review_date = Today + interval(box)
     current.correctCount += 1;
-    // Scale mastery score smoothly towards 100
+    current.consecutiveCorrect = (current.consecutiveCorrect || 0) + 1;
+    current.box = Math.min(5, (current.box || 1) + 1) as 1 | 2 | 3 | 4 | 5;
+    current.status = current.box >= 4 ? 'MASTERED' : 'LEARNING';
+    current.intervalDays = LEITNER_INTERVALS[current.box] || sm2Result.intervalDays;
+
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + current.intervalDays);
+    current.nextReviewDate = nextDate.toISOString();
+
     const boost = grade === 5 ? 25 : grade === 4 ? 20 : 15;
     current.masteryScore = Math.min(100, current.masteryScore + boost);
   } else {
+    // B. Nếu trả lời SAI (Fail) - Luật trừng phạt: box = 1, consecutive_correct = 0, next_review_date = Tomorrow
     current.wrongCount += 1;
+    current.consecutiveCorrect = 0;
+    current.box = 1;
+    current.status = 'LEARNING';
+    current.intervalDays = 1;
     current.lapseCount = (current.lapseCount || 0) + 1;
-    // Drop score to require review
+
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 1);
+    current.nextReviewDate = nextDate.toISOString();
+
     current.masteryScore = Math.max(10, current.masteryScore - 25);
   }
 
   current.lastReviewed = new Date().toISOString();
-  current.retentionScore = 100; // Freshly reviewed now
-  current.needsReview = current.masteryScore < 80 || new Date(current.nextReviewDate).getTime() <= Date.now();
+  current.retentionScore = 100;
+  current.needsReview = current.box < 4 || new Date(current.nextReviewDate).getTime() <= Date.now();
   records[termId] = current;
 
   try {
@@ -420,7 +458,10 @@ export function saveStudyHistory(learnedTermIds: string[], dayKey: string, dayTe
   try {
     const current = getStudyHistory();
     const uniqueLearned = Array.from(new Set([...current.learnedTermIds, ...learnedTermIds]));
-    current.daysHistory[dayKey] = dayTerms;
+    current.daysHistory[dayKey] = Array.from(new Set([
+      ...(current.daysHistory[dayKey] || []),
+      ...dayTerms
+    ]));
     localStorage.setItem(STORAGE_KEY_STUDY_HISTORY, JSON.stringify({
       learnedTermIds: uniqueLearned,
       daysHistory: current.daysHistory
@@ -441,11 +482,105 @@ export function saveStudyHistory(learnedTermIds: string[], dayKey: string, dayTe
  *   - Type 3: Multiple choice Vietnamese -> English
  *   - Type 4: Emergency / SMCP contextual application
  */
+/**
+ * Helper to build a varied, pedagogically structured question for a maritime term.
+ */
+export function createSessionQuestion(
+  v: MaritimeTermFull,
+  qIdx: number,
+  category: 'new' | 'preview' | 'review' | 'reinforcement',
+  allPool: MaritimeTermFull[],
+  currentDayNumber: number,
+  forcedType?: 'cloze' | 'mcq' | 'definition' | 'context'
+): DailySessionQuestion {
+  const safeRegex = new RegExp(`(${v.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'i');
+  const parts = v.exampleEn.split(safeRegex);
+  const before = parts[0] || 'Observe and report the';
+  const after = parts.slice(2).join('') || 'in accordance with STCW maritime regulations.';
+
+  // Plausible distractors from same maritime pool
+  const otherOptions = allPool
+    .filter(o => o.word.toLowerCase() !== v.word.toLowerCase())
+    .map(o => o.word.toLowerCase())
+    .filter((word, idx, self) => self.indexOf(word) === idx)
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 3);
+
+  const options = [v.word.toLowerCase(), ...otherOptions].sort(() => 0.5 - Math.random());
+
+  const qTypes: Array<'cloze' | 'mcq' | 'definition' | 'context'> = ['cloze', 'mcq', 'definition', 'context'];
+  const chosenType = forcedType || qTypes[qIdx % qTypes.length];
+
+  let prompt = 'Điền từ vựng chuẩn trong ngữ cảnh kỹ thuật:';
+  if (chosenType === 'definition') {
+    prompt = 'Chọn thuật ngữ tiếng Anh tương ứng với định nghĩa:';
+  } else if (chosenType === 'context') {
+    prompt = 'Khẩu lệnh & thuật ngữ hàng hải chuẩn IMO / STCW:';
+  } else if (chosenType === 'mcq') {
+    prompt = 'Chọn thuật ngữ chính xác trong tình huống thao tác:';
+  } else {
+    prompt = 'Điền từ khóa vào chỗ trống trong câu thực hành:';
+  }
+
+  let tagLabel = '⭐ TỪ BÀI HIỆN TẠI (GHI NHỚ)';
+  if (category === 'preview') {
+    tagLabel = '🔭 TỪ BÀI TIẾP THEO (KHÁM PHÁ TRƯỚC)';
+  } else if (category === 'review') {
+    tagLabel = '🔄 TỪ ĐÃ HỌC (ÔN TẬP SM-2)';
+  } else if (category === 'reinforcement') {
+    tagLabel = '⚡ CỦNG CỐ TỪ VỪA LÀM SAI';
+  }
+
+  return {
+    id: `daily-q-${currentDayNumber}-${qIdx + 1}-${Math.floor(Math.random() * 10000)}`,
+    termId: v.id,
+    targetWord: v.word.toLowerCase(),
+    phonetic: v.phonetic,
+    meaningVi: v.meaningVi,
+    sentenceBefore: before,
+    sentenceAfter: after,
+    vietnameseSentence: v.exampleVi,
+    hint: v.collocations?.slice(0, 2).join(', ') || v.vietnameseContext || v.meaningVi,
+    questionType: chosenType,
+    prompt: prompt,
+    options: options,
+    correctAnswer: v.word.toLowerCase(),
+    explanation: `${v.word} (${v.phonetic}): ${v.meaningVi}. Ví dụ: "${v.exampleEn}" - ${v.exampleVi}`,
+    isReview: category === 'review',
+    isPreview: category === 'preview',
+    isReinforcement: category === 'reinforcement',
+    tagLabel: tagLabel,
+    dayLearned: currentDayNumber
+  };
+}
+
+export function getLeitnerBox(record?: TermMasteryRecord): 1 | 2 | 3 | 4 | 5 {
+  if (!record) return 1;
+  if (record.box >= 1 && record.box <= 5) return record.box;
+
+  // ponytail: compatibility for SM-2 records saved before the 5-box schema.
+  if (record.intervalDays <= 1) return 1;
+  if (record.intervalDays <= 3) return 2;
+  if (record.intervalDays <= 7) return 3;
+  if (record.intervalDays <= 14) return 4;
+  return 5;
+}
+
+/**
+ * 25-Question Daily Interleaved Protocol with 4-Bucket Leitner Architecture:
+ * When repository expands (15 to 50+ terms), quota is strictly partitioned into 3 groups:
+ * 1. Nhóm 1 (Từ mới hôm nay & xem trước): 5 từ -> 12 câu (~2.4 lần/từ). Ghi nhớ ban đầu.
+ * 2. Nhóm 2 (Từ hôm qua & từ hay sai - Hộp 1 & 2): 3–5 từ -> 8 câu (~2 lần/từ). Chống quên ngắn hạn.
+ * 3. Nhóm 3 (Rà soát ngẫu nhiên kho cũ - Hộp 3 & 4): 5 từ -> 5 câu (mỗi từ đúng 1 câu). Kiểm tra dài hạn.
+ * Total: ~13–15 active terms, EXACTLY 25 questions.
+ */
 export function generateDaily25Session(
   department: 'engine' | 'deck',
   targetNewCount = 5,
   mode: 'auto' | 'fluency_drill' | 'new_words' = 'auto',
-  currentLessonTerms?: any[]
+  currentLessonTerms?: any[],
+  _upcomingLessonTerms?: any[],
+  pastLearnedTerms?: any[]
 ): DailyStudySession {
   const history = getStudyHistory();
   const mastery = getMasteryRecords();
@@ -454,17 +589,18 @@ export function generateDaily25Session(
   const currentDayNumber = Object.keys(history.daysHistory).length + 1;
   const now = Date.now();
 
-  // Filter pool matching department
-  const deptVocab = ALL_MARITIME_VOCABULARY.filter(v => v.department === department || v.department === 'safety' || v.department === 'crew');
+  // Full departmental pool
+  const deptVocab = ALL_MARITIME_VOCABULARY.filter(
+    v => v.department === department || v.department === 'safety' || v.department === 'crew'
+  );
 
   const isConsolidating = mode === 'fluency_drill' || (mode === 'auto' && fluency.recommendation === 'consolidate');
 
+  // 1. Nhóm 1: Từ mới hôm nay (Current Lesson)
   let actualNewVocab: MaritimeTermFull[] = [];
-  let newTermIds: string[] = [];
-
   if (currentLessonTerms && currentLessonTerms.length > 0) {
-    actualNewVocab = currentLessonTerms.map((t: any, idx: number) => ({
-      id: t.id || `term-${idx}`,
+    actualNewVocab = currentLessonTerms.slice(0, targetNewCount).map((t: any, idx: number) => ({
+      id: t.id || `term-current-${idx}`,
       word: t.word,
       phonetic: t.phonetic || '',
       partOfSpeech: 'phrase' as const,
@@ -478,127 +614,230 @@ export function generateDaily25Session(
       department: department,
       collocations: [t.word]
     }));
-    newTermIds = actualNewVocab.map(v => v.id);
   } else if (!isConsolidating) {
-    // Identify new terms not yet learned
     const unlearnedVocab = deptVocab.filter(v => !history.learnedTermIds.includes(v.id));
-    const newVocabPool = unlearnedVocab.slice(0, targetNewCount);
-    actualNewVocab = newVocabPool.length > 0 ? newVocabPool : deptVocab.slice(0, targetNewCount);
-    newTermIds = actualNewVocab.map(v => v.id);
+    actualNewVocab = (unlearnedVocab.length > 0 ? unlearnedVocab : deptVocab).slice(0, targetNewCount);
   }
 
-  // Identify review terms from previous days, prioritizing Ebbinghaus due dates & lowest retention rate
-  const learnedVocabPool = deptVocab.filter(v => history.learnedTermIds.includes(v.id) && !newTermIds.includes(v.id));
-  const sortedReviewPool = [...learnedVocabPool].sort((a, b) => {
-    const recA = mastery[a.id];
-    const recB = mastery[b.id];
+  const newTermIds = actualNewVocab.map(v => v.id);
+  const newWordSet = new Set<string>(actualNewVocab.map(v => v.word.toLowerCase()));
 
-    // Priority 1: Due date passed
-    const dueTimeA = recA?.nextReviewDate ? new Date(recA.nextReviewDate).getTime() : 0;
-    const dueTimeB = recB?.nextReviewDate ? new Date(recB.nextReviewDate).getTime() : 0;
-    const isDueA = dueTimeA <= now;
-    const isDueB = dueTimeB <= now;
+  // Fixed Quota chỉ có 5 từ mới hôm nay; từ xem trước không được chen vào 25 câu.
+  const actualPreviewVocab: MaritimeTermFull[] = [];
 
-    if (isDueA && !isDueB) return -1;
-    if (!isDueA && isDueB) return 1;
+  const previewTermIds = actualPreviewVocab.map(v => v.id);
+  const previewWordSet = new Set<string>(actualPreviewVocab.map(v => v.word.toLowerCase()));
 
-    // Priority 2: Lowest retention score (Ebbinghaus decay)
-    const retA = recA?.retentionScore ?? 50;
-    const retB = recB?.retentionScore ?? 50;
-    if (retA !== retB) return retA - retB;
-
-    // Priority 3: Lowest mastery score
-    const scoreA = recA?.masteryScore ?? 50;
-    const scoreB = recB?.masteryScore ?? 50;
-    return scoreA - scoreB;
+  // 3. Phân loại Kho từ cũ vào các Hộp Leitner (Buckets)
+  // Thu thập toàn bộ từ đã học từ các bài trước, mastery records và lịch sử
+  const learnedKeys = new Set<string>();
+  history.learnedTermIds.forEach(id => learnedKeys.add(id.toLowerCase()));
+  Object.values(mastery).forEach(rec => {
+    if (rec.word) learnedKeys.add(rec.word.toLowerCase());
+    if (rec.termId) learnedKeys.add(rec.termId.toLowerCase());
   });
 
-  // If consolidating, take up to 8 terms needing reinforcement
-  const reviewLimit = isConsolidating ? 8 : 5;
-  const selectedReviewVocab = sortedReviewPool.slice(0, reviewLimit);
-  const reviewTermIds = selectedReviewVocab.map(v => v.id);
+  const explicitPast: MaritimeTermFull[] = (pastLearnedTerms || []).map((t: any, idx: number) => ({
+    id: t.id || `term-past-${idx}`,
+    word: t.word,
+    phonetic: t.phonetic || '',
+    partOfSpeech: 'phrase' as const,
+    systemCategory: 'Learned Review',
+    cefrLevel: 'B1' as const,
+    stcwCode: 'STCW A-II/1',
+    meaningVi: t.meaningVi || t.meaning || '',
+    vietnameseContext: t.vietnameseContext || t.vietnameseSentence || '',
+    exampleEn: t.example || `${t.sentenceBefore || ''} ${t.word} ${t.sentenceAfter || ''}`.trim(),
+    exampleVi: t.vietnameseSentence || '',
+    department: department,
+    collocations: [t.word]
+  }));
 
-  // If both empty (brand new user in consolidate mode), fallback to new vocab
-  if (actualNewVocab.length === 0 && selectedReviewVocab.length === 0) {
+  const deptLearned = deptVocab.filter(v =>
+    learnedKeys.has(v.id.toLowerCase()) || learnedKeys.has(v.word.toLowerCase())
+  );
+
+  const combinedLearnedMap = new Map<string, MaritimeTermFull>();
+  [...explicitPast, ...deptLearned].forEach(v => {
+    const key = v.word.toLowerCase();
+    if (!newWordSet.has(key) && !previewWordSet.has(key)) {
+      if (!combinedLearnedMap.has(key)) {
+        combinedLearnedMap.set(key, v);
+      }
+    }
+  });
+
+  const learnedVocabPool = Array.from(combinedLearnedMap.values());
+
+  // Nhóm 2: chỉ từ ĐẾN HẠN, Box < 5; tối đa 4 từ.
+  const shortTermCandidates = learnedVocabPool.filter(v => {
+    const rec = mastery[v.id];
+    const box = getLeitnerBox(rec);
+    const dueTime = rec?.nextReviewDate ? new Date(rec.nextReviewDate).getTime() : 0;
+    return box < 5 && dueTime <= now;
+  });
+
+  const sortedShortTerm = [...shortTermCandidates].sort((a, b) => {
+    const recA = mastery[a.id];
+    const recB = mastery[b.id];
+    const dueA = recA?.nextReviewDate ? new Date(recA.nextReviewDate).getTime() : false;
+    const dueB = recB?.nextReviewDate ? new Date(recB.nextReviewDate).getTime() : false;
+    if (dueA && !dueB) return -1;
+    if (!dueA && dueB) return 1;
+    const lapsesA = recA?.lapseCount || 0;
+    const lapsesB = recB?.lapseCount || 0;
+    if (lapsesA !== lapsesB) return lapsesB - lapsesA;
+    return (recA?.retentionScore || 50) - (recB?.retentionScore || 50);
+  });
+
+  const selectedShortTermVocab = sortedShortTerm.slice(0, 4);
+  const shortTermIds = selectedShortTermVocab.map(v => v.id);
+
+  // Nhóm 3: đúng 1 câu/từ, chỉ Box 4–5, chọn ngẫu nhiên.
+  const selectedLongTermVocab = learnedVocabPool
+    .filter(v => !shortTermIds.includes(v.id) && getLeitnerBox(mastery[v.id]) >= 4)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 5);
+  const longTermIds = selectedLongTermVocab.map(v => v.id);
+
+  // Fallback if brand new user
+  if (actualNewVocab.length === 0 && selectedShortTermVocab.length === 0 && selectedLongTermVocab.length === 0) {
     actualNewVocab = deptVocab.slice(0, targetNewCount);
-    newTermIds = actualNewVocab.map(v => v.id);
   }
 
-  // Active terms for today's 25 questions
-  const activeVocabList: MaritimeTermFull[] = [...actualNewVocab, ...selectedReviewVocab];
-
-  const questions: DailySessionQuestion[] = [];
+  const allActivePool = [
+    ...actualNewVocab,
+    ...actualPreviewVocab,
+    ...selectedShortTermVocab,
+    ...selectedLongTermVocab,
+    ...deptVocab
+  ];
   const TOTAL_QUESTIONS = 25;
 
-  // Question templates for variety
-  const VARIANT_PROMPTS = [
-    () => `Điền từ vựng chuẩn trong ngữ cảnh kỹ thuật:`,
-    () => `Chọn thuật ngữ tiếng Anh tương ứng:`,
-    () => `Khẩu lệnh và thuật ngữ hàng hải chuẩn IMO:`,
-    () => `Tìm thuật ngữ chính xác trong tình huống thao tác:`,
-    () => `Thuật ngữ chuyên ngành đối chiếu:`
-  ];
+  // 4. Phân bổ hạn ngạch câu hỏi (12 / 8 / 5 Quota Distribution)
+  let qGroup1Target = 12; // Nhóm 1: Từ mới hôm nay & xem trước
+  let qGroup2Target = 8;  // Nhóm 2: Từ hôm qua & từ hay sai (Hộp 1 & 2)
+  let qGroup3Target = 5;  // Nhóm 3: Rà soát ngẫu nhiên kho cũ (Hộp 3 & 4, 1 câu/từ)
 
-  for (let qIdx = 0; qIdx < TOTAL_QUESTIONS; qIdx++) {
-    // Interleave new terms and review terms across the 25 questions
-    // e.g. 60% new terms, 40% review terms (or proportional)
-    const isReview = reviewTermIds.length > 0 && (qIdx % 2 === 1 || qIdx > 15);
-    const candidatePool = (isReview && selectedReviewVocab.length > 0) ? selectedReviewVocab : actualNewVocab;
-    const v = candidatePool[qIdx % candidatePool.length] || activeVocabList[qIdx % activeVocabList.length];
-
-    const parts = v.exampleEn.split(new RegExp(`(${v.word})`, 'i'));
-    const before = parts[0] || 'Observe and report the';
-    const after = parts.slice(2).join('') || 'in accordance with STCW maritime regulations.';
-
-    // Generate 3 plausible distractors from activeVocabList and deptVocab
-    const distractorPool = [...activeVocabList, ...deptVocab];
-    const otherOptions = distractorPool
-      .filter(o => o.word.toLowerCase() !== v.word.toLowerCase())
-      .map(o => o.word.toLowerCase())
-      .filter((word, idx, self) => self.indexOf(word) === idx)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3);
-
-    const options = [v.word.toLowerCase(), ...otherOptions].sort(() => 0.5 - Math.random());
-
-    const qTypeIndex = qIdx % 4;
-    const qTypes: Array<'cloze' | 'mcq' | 'definition' | 'context'> = ['cloze', 'mcq', 'definition', 'context'];
-    const chosenType = qTypes[qTypeIndex];
-
-    const promptGenerator = VARIANT_PROMPTS[qIdx % VARIANT_PROMPTS.length];
-    const promptText = promptGenerator();
-
-    questions.push({
-      id: `daily-q-${currentDayNumber}-${qIdx + 1}`,
-      termId: v.id,
-      targetWord: v.word.toLowerCase(),
-      phonetic: v.phonetic,
-      meaningVi: v.meaningVi,
-      sentenceBefore: before,
-      sentenceAfter: after,
-      vietnameseSentence: v.exampleVi,
-      hint: v.collocations?.slice(0, 2).join(', ') || v.vietnameseContext,
-      questionType: chosenType,
-      prompt: promptText,
-      options: options,
-      correctAnswer: v.word.toLowerCase(),
-      explanation: `${v.word} (${v.phonetic}): ${v.meaningVi}. Ví dụ: "${v.exampleEn}" - ${v.exampleVi}`,
-      isReview: isReview,
-      dayLearned: currentDayNumber
-    });
+  // Điều tiết khi kho từ cũ còn ít (Người mới bắt đầu).
+  if (selectedLongTermVocab.length < 5) {
+    const deficit = 5 - selectedLongTermVocab.length;
+    qGroup3Target = selectedLongTermVocab.length;
+    qGroup1Target += deficit;
+  }
+  // Nhóm 2 tối đa 2 lượt/từ; phần thiếu chuyển về nhóm 1.
+  const maxShortTermQuestions = selectedShortTermVocab.length * 2;
+  if (qGroup2Target > maxShortTermQuestions) {
+    qGroup1Target += qGroup2Target - maxShortTermQuestions;
+    qGroup2Target = maxShortTermQuestions;
   }
 
-  // Shuffle questions slightly so new terms and review terms are dynamically interwoven
-  const shuffledQuestions = questions.sort(() => 0.5 - Math.random());
+  // 5. Sinh câu hỏi cho từng nhóm
+  // --- Nhóm 1: Từ mới hôm nay (qGroup1Target câu)
+  const group1Questions: DailySessionQuestion[] = [];
+  const g1Pool = [...actualNewVocab, ...actualPreviewVocab];
+  if (g1Pool.length > 0) {
+    for (let i = 0; i < qGroup1Target; i++) {
+      const v = g1Pool[i % g1Pool.length];
+      const isPrev = previewTermIds.includes(v.id);
+      const q = createSessionQuestion(
+        v,
+        i,
+        isPrev ? 'preview' : 'new',
+        allActivePool,
+        currentDayNumber
+      );
+      if (!isPrev) {
+        q.tagLabel = '⭐ TỪ MỚI HÔM NAY (12 CÂU GHI NHỚ)';
+      }
+      group1Questions.push(q);
+    }
+  }
+
+  // --- Nhóm 2: Từ hôm qua & từ hay sai (qGroup2Target câu, ~2 lần/từ)
+  const group2Questions: DailySessionQuestion[] = [];
+  if (selectedShortTermVocab.length > 0 && qGroup2Target > 0) {
+    for (let i = 0; i < qGroup2Target; i++) {
+      const v = selectedShortTermVocab[i % selectedShortTermVocab.length];
+      const q = createSessionQuestion(v, i, 'review', allActivePool, currentDayNumber);
+      q.tagLabel = '🔄 CHỐNG QUÊN NGẮN HẠN (HỘP 1 & 2)';
+      group2Questions.push(q);
+    }
+  }
+
+  // --- Nhóm 3: Rà soát ngẫu nhiên kho cũ (qGroup3Target câu, đúng 1 câu/từ)
+  const group3Questions: DailySessionQuestion[] = [];
+  if (selectedLongTermVocab.length > 0 && qGroup3Target > 0) {
+    for (let i = 0; i < qGroup3Target && i < selectedLongTermVocab.length; i++) {
+      const v = selectedLongTermVocab[i];
+      const q = createSessionQuestion(v, i, 'review', allActivePool, currentDayNumber, 'mcq');
+      q.tagLabel = '🧭 RÀ SOÁT KHO CŨ (HỘP 3 & 4 DÀI HẠN)';
+      group3Questions.push(q);
+    }
+  }
+
+  // 6. Xen kẽ thông minh (Interleaving)
+  const interleaved: DailySessionQuestion[] = [];
+  let g1Idx = 0;
+  let g2Idx = 0;
+  let g3Idx = 0;
+
+  // Pattern: G1 (mới) -> G2 (ngắn hạn) -> G1 (mới) -> G3 (dài hạn) -> G1 -> G2...
+  while (interleaved.length < TOTAL_QUESTIONS) {
+    if (g1Idx < group1Questions.length && interleaved.length < TOTAL_QUESTIONS) {
+      interleaved.push(group1Questions[g1Idx++]);
+    }
+    if (g2Idx < group2Questions.length && interleaved.length < TOTAL_QUESTIONS) {
+      interleaved.push(group2Questions[g2Idx++]);
+    }
+    if (g1Idx < group1Questions.length && interleaved.length < TOTAL_QUESTIONS) {
+      interleaved.push(group1Questions[g1Idx++]);
+    }
+    if (g3Idx < group3Questions.length && interleaved.length < TOTAL_QUESTIONS) {
+      interleaved.push(group3Questions[g3Idx++]);
+    }
+    if (g1Idx >= group1Questions.length && g2Idx >= group2Questions.length && g3Idx >= group3Questions.length) {
+      break;
+    }
+  }
+
+  // Đảm bảo đủ 25 câu
+  while (interleaved.length < TOTAL_QUESTIONS) {
+    const fallback = actualNewVocab[interleaved.length % actualNewVocab.length] || deptVocab[0];
+    interleaved.push(createSessionQuestion(fallback, interleaved.length, 'new', allActivePool, currentDayNumber));
+  }
+
+  // 7. Khử trùng lặp với khoảng cách an toàn (gap >= 2 theo đặc tả)
+  for (let i = 1; i < interleaved.length; i++) {
+    const hasCollision =
+      interleaved[i].targetWord === interleaved[i - 1]?.targetWord ||
+      (i >= 2 && interleaved[i].targetWord === interleaved[i - 2]?.targetWord);
+
+    if (hasCollision) {
+      const swapIdx = interleaved.findIndex(
+        (q, idx) =>
+          idx > i &&
+          q.targetWord !== interleaved[i - 1]?.targetWord &&
+          q.targetWord !== interleaved[i - 2]?.targetWord
+      );
+      if (swapIdx !== -1) {
+        const temp = interleaved[i];
+        interleaved[i] = interleaved[swapIdx];
+        interleaved[swapIdx] = temp;
+      }
+    }
+  }
 
   return {
     day: currentDayNumber,
     dateKey: todayKey,
     newTermsCount: actualNewVocab.length,
-    reviewTermsCount: selectedReviewVocab.length,
+    previewTermsCount: actualPreviewVocab.length,
+    reviewTermsCount: selectedShortTermVocab.length + selectedLongTermVocab.length,
     totalQuestions: TOTAL_QUESTIONS,
     newTermIds: newTermIds,
-    reviewTermIds: reviewTermIds,
-    questions: shuffledQuestions
+    previewTermIds: previewTermIds,
+    reviewTermIds: [...shortTermIds, ...longTermIds],
+    questions: interleaved
   };
 }

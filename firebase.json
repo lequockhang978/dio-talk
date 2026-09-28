@@ -3,6 +3,7 @@
     "rules": "firestore.rules"
   },
   "hosting": {
+    "site": "studio-xdudz",
     "public": "dist",
     "ignore": [
       "firebase.json",

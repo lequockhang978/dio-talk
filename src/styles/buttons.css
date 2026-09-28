@@ -1,0 +1,314 @@
+/* ==========================================================================
+   PEAKTALK 3D TACTILE BUTTON SUITE (DUOLINGO GRADE)
+   Deep Bevel Compression + Specular Highlights + Spring Physics
+   ========================================================================== */
+
+/* 1. BASE TACTILE BUTTON */
+.btn-duo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: inherit;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  border: none;
+  border-radius: var(--radius-md);
+  box-sizing: border-box;
+  transform: translateY(0);
+  transition: transform var(--motion-press), box-shadow var(--motion-press), filter var(--motion-press);
+  will-change: transform, box-shadow;
+  outline: none;
+}
+
+.btn-duo:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-duo:active:not(:disabled),
+.btn-duo.is-pressed:not(:disabled) {
+  transform: translateY(var(--btn-press, 4px)) !important;
+  box-shadow: 0 1px 0 var(--btn-shadow-color, #05515a) !important;
+  transition-duration: 40ms;
+}
+
+.btn-duo:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 2. SIZES */
+.btn-duo-sm {
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  --btn-depth: 3px;
+  --btn-press: 2px;
+}
+
+.btn-duo-md {
+  padding: 13px 24px;
+  font-size: 0.95rem;
+  border-radius: var(--radius-md);
+  --btn-depth: 5px;
+  --btn-press: 4px;
+}
+
+.btn-duo-lg {
+  padding: 16px 28px;
+  font-size: 1.05rem;
+  border-radius: var(--radius-lg);
+  --btn-depth: 6px;
+  --btn-press: 5px;
+}
+
+.btn-duo-full {
+  width: 100%;
+  display: flex;
+}
+
+/* 3. COLOR VARIANTS (DUOLINGO 3D DEPTH FORMULA) */
+
+/* CYAN / MARINE (Primary Action) */
+.btn-duo-marine {
+  background: linear-gradient(180deg, #0ba2b2 0%, #087e8b 100%);
+  color: #ffffff;
+  --btn-shadow-color: #05515a;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 var(--btn-depth, 5px) 0 var(--btn-shadow-color);
+}
+
+/* CORAL / RESCUE (Attention / Mayday / Primary Bright) */
+.btn-duo-coral {
+  background: linear-gradient(180deg, #ff8e6e 0%, #ff7b54 100%);
+  color: #ffffff;
+  --btn-shadow-color: #d44d24;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 var(--btn-depth, 5px) 0 var(--btn-shadow-color);
+}
+
+/* EMERALD / SUCCESS (Next Question / Continue / Correct) */
+.btn-duo-emerald {
+  background: linear-gradient(180deg, #2ecc94 0%, #249f76 100%);
+  color: #ffffff;
+  --btn-shadow-color: #187555;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 var(--btn-depth, 5px) 0 var(--btn-shadow-color);
+}
+
+/* BEACON GOLD (Rewards / XP / Stars) */
+.btn-duo-gold {
+  background: linear-gradient(180deg, #ffd670 0%, #ffc857 100%);
+  color: #4a3400;
+  --btn-shadow-color: #cc9728;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 var(--btn-depth, 5px) 0 var(--btn-shadow-color);
+}
+
+/* RUBY / EMERGENCY (Danger / Quit / Wrong) */
+.btn-duo-ruby {
+  background: linear-gradient(180deg, #ff7176 0%, #e95d62 100%);
+  color: #ffffff;
+  --btn-shadow-color: #b83338;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 var(--btn-depth, 5px) 0 var(--btn-shadow-color);
+}
+
+/* SURFACE / GLASS GHOST (Subtle Outline with 3D Floor) */
+.btn-duo-surface {
+  background: #ffffff;
+  color: #102a43;
+  --btn-shadow-color: #cbd5e1;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 var(--btn-depth, 4px) 0 var(--btn-shadow-color);
+}
+
+.btn-duo-surface:hover {
+  background: #f8fafc;
+}
+
+/* 4. DUOLINGO CIRCULAR SKILL TREE NODE (.node-duo-circle) */
+.node-duo-circle {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  border: none;
+  transform: translateY(0);
+  transition: transform 90ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 90ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, box-shadow;
+}
+
+/* Node sẵn sàng học (Active) */
+.node-duo-circle.is-active {
+  background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+  color: #ffffff;
+  box-shadow: 
+    0 2px 0 rgba(255, 255, 255, 0.5) inset,
+    0 8px 0 #0369a1,
+    0 16px 24px rgba(2, 132, 199, 0.35);
+}
+
+.node-duo-circle.is-active:active {
+  transform: translateY(6px);
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 2px 0 #0369a1,
+    0 6px 12px rgba(2, 132, 199, 0.25);
+}
+
+/* Vòng xoay Pulsing Radar bao quanh node đang học */
+.node-duo-circle.is-active::after {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 50%;
+  border: 2px dashed #38bdf8;
+  animation: radarRotate 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes radarRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Node đã hoàn thành (Mastered - Gold) */
+.node-duo-circle.is-mastered {
+  background: linear-gradient(180deg, #ffd700 0%, #f59e0b 100%);
+  color: #78350f;
+  box-shadow: 
+    0 2px 0 rgba(255, 255, 255, 0.6) inset,
+    0 8px 0 #b45309,
+    0 16px 24px rgba(245, 158, 11, 0.3);
+}
+
+.node-duo-circle.is-mastered:active {
+  transform: translateY(6px);
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 2px 0 #b45309;
+}
+
+/* Node bị khóa (Locked - Stone Grey) */
+.node-duo-circle.is-locked {
+  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
+  color: #cbd5e1;
+  box-shadow: 
+    0 2px 0 rgba(255, 255, 255, 0.2) inset,
+    0 7px 0 #475569;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}
+
+.node-duo-circle.is-locked:active {
+  transform: translateY(2px);
+  box-shadow: 0 5px 0 #475569;
+}
+
+/* 5. HEAVY DUTY INDUSTRIAL MARINE PTT BUTTON */
+.btn-ptt-tactile {
+  position: relative;
+  width: 140px;
+  height: 90px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #ff8e6e 0%, #ff5722 100%);
+  color: #ffffff;
+  border: none;
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  box-shadow: 
+    0 2px 0 rgba(255, 255, 255, 0.5) inset,
+    0 8px 0 #b83307,
+    0 18px 30px rgba(255, 87, 34, 0.4);
+  transform: translateY(0);
+  transition: transform 60ms ease, box-shadow 60ms ease, filter 60ms ease;
+}
+
+.btn-ptt-tactile:active,
+.btn-ptt-tactile.is-transmitting {
+  transform: translateY(6px);
+  box-shadow: 
+    0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 2px 0 #b83307,
+    0 6px 15px rgba(255, 87, 34, 0.5);
+  background: linear-gradient(180deg, #ff5722 0%, #d84315 100%);
+}
+
+/* 6. DUOLINGO 3D MULTIPLE CHOICE OPTION CARDS (.duo-choice-card) */
+.duo-choice-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 18px;
+  background: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 0 #cbd5e1;
+  color: #102a43;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transform: translateY(0);
+  transition: transform 70ms ease, box-shadow 70ms ease, border-color 120ms ease, background-color 120ms ease;
+  box-sizing: border-box;
+}
+
+.duo-choice-card:hover {
+  background: #f8fafc;
+}
+
+.duo-choice-card:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #cbd5e1;
+}
+
+.duo-choice-card.is-selected {
+  background: #f0fdfa;
+  border-color: #087e8b;
+  color: #087e8b;
+  box-shadow: 0 4px 0 #05515a;
+}
+
+.duo-choice-card.is-selected:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #05515a;
+}

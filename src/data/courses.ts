@@ -121,7 +121,7 @@ export const MARITIME_10K_TERMS: Term[] = ALL_MARITIME_VOCABULARY.map(v => {
     sentenceAfter: after,
     vietnameseSentence: v.exampleVi,
     hint: v.collocations.slice(0, 2).join(', '),
-    dots: 1,
+    dots: 0,
     mastered: false
   };
 });

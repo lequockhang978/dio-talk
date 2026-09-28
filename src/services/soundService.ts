@@ -46,6 +46,180 @@ class SoundService {
     }
   }
 
+  /**
+   * Âm thanh click cơ học tức thì (< 8ms) chuẩn Duolingo 3D Button
+   */
+  public playClick() {
+    const ctx = this.getAudioContext();
+    this.vibrate(12);
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.035);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.035);
+    } catch {}
+  }
+
+  /**
+   * Âm thanh Pop bong bóng nảy (khi chạm node bài học, sticker)
+   */
+  public playPop() {
+    const ctx = this.getAudioContext();
+    this.vibrate(16);
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(450, now);
+      osc.frequency.exponentialRampToValueAtTime(900, now + 0.06);
+
+      gain.gain.setValueAtTime(0.22, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.06);
+    } catch {}
+  }
+
+  /**
+   * Âm thanh chuông trả lời đúng chuẩn Duolingo (Major Chime C5 -> E5 -> G5)
+   */
+  public playCorrect() {
+    const ctx = this.getAudioContext();
+    this.vibrate([25, 20, 50]);
+    if (!ctx) return;
+    try {
+      const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const t = ctx.currentTime + idx * 0.07;
+        const dur = 0.22;
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(t);
+        osc.stop(t + dur);
+      });
+    } catch {}
+  }
+
+  /**
+   * Âm thanh báo sai nhẹ nhàng (F#3 -> D3 Descending Thud)
+   */
+  public playWrong() {
+    const ctx = this.getAudioContext();
+    this.vibrate([60, 40, 60]);
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.22);
+
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } catch {}
+  }
+
+  /**
+   * Âm thanh bíp ngắt sóng radio VHF hải quân (Roger Beep 1050Hz)
+   */
+  public playRogerBeep() {
+    const ctx = this.getAudioContext();
+    this.vibrate(35);
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1050, now);
+
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } catch {}
+  }
+
+  /**
+   * Tiếng rè xì tĩnh điện sóng radio khi mở PTT (Squelch Noise Burst)
+   */
+  public playRadioSquelch() {
+    const ctx = this.getAudioContext();
+    this.vibrate(25);
+    if (!ctx) return;
+    try {
+      const bufferSize = ctx.sampleRate * 0.06;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+
+      const whiteNoise = ctx.createBufferSource();
+      whiteNoise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1800;
+      filter.Q.value = 2.5;
+
+      const gain = ctx.createGain();
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+
+      whiteNoise.start(now);
+    } catch {}
+  }
+
   public playMilestone(level: number) {
     const ctx = this.getAudioContext();
     if (!ctx) return;

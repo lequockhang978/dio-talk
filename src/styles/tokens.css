@@ -1,0 +1,72 @@
+/* ==========================================================================
+   PEAKTALK 3.0 NAUTICAL DESIGN TOKENS
+   Deep Ocean Hydro-Glassmorphism & Duolingo-Tier Tactile System
+   ========================================================================== */
+
+:root {
+  /* 1. DEEP OCEAN FOUNDATION PALETTE */
+  --ocean-abyss-950: #050b14;
+  --ocean-abyss-900: #0a1626;
+  --ocean-abyss-800: #0f243d;
+  --ocean-abyss-700: #19385c;
+  --ocean-abyss-600: #254d7d;
+
+  /* 2. BIOLUMINESCENT ACCENTS (Điểm nhấn phát quang đại dương) */
+  --cyan-beam-400: #22d3ee;
+  --cyan-beam-500: #087e8b;
+  --cyan-beam-600: #05515a;
+  --cyan-beam-dark: #03393f;
+  --cyan-beam-glow: rgba(8, 126, 139, 0.45);
+
+  --rescue-coral-400: #fb7185;
+  --rescue-coral-500: #ff7b54;
+  --rescue-coral-600: #d44d24;
+  --rescue-coral-dark: #993314;
+  --rescue-coral-glow: rgba(255, 123, 84, 0.45);
+
+  --beacon-gold-400: #fde047;
+  --beacon-gold-500: #ffc857;
+  --beacon-gold-600: #cc9728;
+  --beacon-gold-dark: #8c6310;
+  --beacon-gold-glow: rgba(255, 200, 87, 0.45);
+
+  --hull-emerald-400: #34d399;
+  --hull-emerald-500: #249f76;
+  --hull-emerald-600: #187555;
+  --hull-emerald-dark: #0f523a;
+  --hull-emerald-glow: rgba(36, 159, 118, 0.45);
+
+  --port-ruby-400: #f87171;
+  --port-ruby-500: #e95d62;
+  --port-ruby-600: #b83338;
+  --port-ruby-dark: #7a1b20;
+
+  /* 3. NEUTRALS & TEXT */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(34, 211, 238, 0.25);
+
+  /* 4. DUOLINGO TACTILE 3D DEPTH CONSTANTS */
+  --duo-depth-sm: 3px;
+  --duo-depth-md: 5px;
+  --duo-depth-lg: 7px;
+  --duo-press-sm: 2px;
+  --duo-press-md: 4px;
+  --duo-press-lg: 5px;
+
+  /* 5. MOTION SPRINGS & DURATIONS */
+  --spring-snappy: 160ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --spring-gentle: 280ms cubic-bezier(0.25, 1, 0.5, 1);
+  --spring-pop: 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-press: 70ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-release: 140ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* 6. CORNER RADIUS */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-full: 9999px;
+}
