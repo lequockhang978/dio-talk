@@ -1,0 +1,1012 @@
+/* ==========================================================================
+   PEAKTALK • UI/UX PRO MAX DUAL-THEME ENGINE (DAYLIGHT & NIGHT BRIDGE)
+   Architecture: Deep Ocean Hydro-Glassmorphism + Cockpit Tactical 3D
+   Spec: MASTER.md • Standard: STCW 78/2010 & IMO SMCP
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. FOUNDATION TOKENS: LIGHT (DAYLIGHT) & NIGHT (BRIDGE COMMAND)
+   -------------------------------------------------------------------------- */
+:root {
+  /* DAYLIGHT MARITIME PALETTE (DEFAULT) */
+  --bg-app: #f0fdfa;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --text-dark: #0f172a;
+  --text-sub: #475569;
+  --text-muted: #64748b;
+  --border-light: rgba(8, 126, 139, 0.16);
+  --border-highlight: rgba(8, 126, 139, 0.38);
+  --shadow-card: 0 4px 16px rgba(8, 126, 139, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --primary-blue: #087e8b;
+  --primary-orange: #ff7b54;
+}
+
+.night-bridge-mode {
+  /* DEEP OCEAN HYDRO-GLASS PALETTE (NIGHT MODE) */
+  --bg-app: #050b14 !important;
+  --bg-card: rgba(10, 22, 38, 0.85) !important;
+  --bg-card-hover: rgba(15, 36, 61, 0.95) !important;
+  --text-dark: #f8fafc !important;
+  --text-sub: #94a3b8 !important;
+  --text-muted: #64748b !important;
+  --border-light: rgba(34, 211, 238, 0.18) !important;
+  --border-highlight: rgba(34, 211, 238, 0.4) !important;
+  --shadow-card: 0 10px 30px -5px rgba(0, 5, 16, 0.65), 0 0 1px rgba(34, 211, 238, 0.3) !important;
+  --primary-blue: #087e8b !important;
+  --primary-orange: #ff7b54 !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. APP CANVAS & SHELL
+   -------------------------------------------------------------------------- */
+body {
+  background-color: #0b1329;
+  color: #0f172a;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+body.night-bridge-mode {
+  background-color: #02060d !important;
+  color: #f8fafc !important;
+}
+
+#root {
+  background: linear-gradient(180deg, #f0fdfa 0%, #e6f7f5 40%, #f8fafc 100%) !important;
+  color: #0f172a !important;
+  box-shadow: 0 20px 60px rgba(8, 126, 139, 0.12), 0 0 0 1px rgba(8, 126, 139, 0.15) !important;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.night-bridge-mode #root,
+body.night-bridge-mode #root {
+  background: radial-gradient(circle at 50% 0%, #0d2238 0%, #050b14 65%) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(34, 211, 238, 0.25) !important;
+}
+
+.dio-onboarding-container {
+  background: radial-gradient(circle at 50% 0%, #0d2238 0%, #050b14 70%) !important;
+  color: #f8fafc !important;
+}
+
+.dio-onboarding-title {
+  color: #f8fafc !important;
+}
+
+.dio-onboarding-desc {
+  color: #94a3b8 !important;
+}
+
+.duo-choice-card {
+  background: #ffffff !important;
+  border: 1.5px solid rgba(8, 126, 139, 0.18) !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 0 #d9e7e8, 0 6px 14px rgba(0, 0, 0, 0.05) !important;
+  border-radius: 16px !important;
+}
+
+.duo-choice-card.is-selected {
+  border-color: #087e8b !important;
+  background: #e6f7f5 !important;
+  box-shadow: 0 4px 0 #05515a, 0 0 14px rgba(8, 126, 139, 0.25) !important;
+  color: #087e8b !important;
+}
+
+.night-bridge-mode .duo-choice-card {
+  background: linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%) !important;
+  border: 1.5px solid rgba(34, 211, 238, 0.22) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 4px 0 #051628, 0 8px 20px rgba(0, 0, 0, 0.45) !important;
+}
+
+.night-bridge-mode .duo-choice-card.is-selected {
+  border-color: #22d3ee !important;
+  background: linear-gradient(145deg, rgba(8, 126, 139, 0.35) 0%, rgba(13, 27, 46, 0.95) 100%) !important;
+  box-shadow: 0 4px 0 #087e8b, 0 0 18px rgba(34, 211, 238, 0.4) !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   3. UNIVERSAL CARD ENGINE (DUAL THEME)
+   -------------------------------------------------------------------------- */
+/* LIGHT MODE: CRISP WHITE CARDS */
+div[style*="background: #FFFFFF"],
+div[style*="background: #ffffff"],
+div[style*="background-color: #FFFFFF"],
+div[style*="background-color: #ffffff"],
+div[style*="background: rgb(255, 255, 255)"],
+div[style*="background-color: rgb(255, 255, 255)"],
+div[style*="background: 'white'"],
+div[style*="background: white"],
+.game-card-item,
+.vocab-item-card,
+.quiz-card,
+.blank-sentence-card {
+  border-radius: 20px !important;
+  border: 1px solid rgba(8, 126, 139, 0.16) !important;
+  box-shadow: 0 4px 16px rgba(8, 126, 139, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* NIGHT MODE: DEEP OCEAN FROSTED GLASS CARDS */
+.night-bridge-mode div[style*="background: #FFFFFF"],
+.night-bridge-mode div[style*="background: #ffffff"],
+.night-bridge-mode div[style*="background-color: #FFFFFF"],
+.night-bridge-mode div[style*="background-color: #ffffff"],
+.night-bridge-mode div[style*="background: rgb(255, 255, 255)"],
+.night-bridge-mode div[style*="background-color: rgb(255, 255, 255)"],
+.night-bridge-mode div[style*="background: 'white'"],
+.night-bridge-mode div[style*="background: white"],
+.night-bridge-mode .game-card-item,
+.night-bridge-mode .vocab-item-card,
+.night-bridge-mode .quiz-card,
+.night-bridge-mode .blank-sentence-card {
+  background: linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(34, 211, 238, 0.2) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.night-bridge-mode div[style*="background: #FFFFFF"] h4,
+.night-bridge-mode div[style*="background: #FFFFFF"] span,
+.night-bridge-mode div[style*="background: #FFFFFF"] strong,
+.night-bridge-mode div[style*="background: #FFFFFF"] p,
+.night-bridge-mode div[style*="background: rgb(255, 255, 255)"] h4,
+.night-bridge-mode div[style*="background: rgb(255, 255, 255)"] span,
+.night-bridge-mode div[style*="background: rgb(255, 255, 255)"] strong,
+.night-bridge-mode div[style*="background: rgb(255, 255, 255)"] p,
+.night-bridge-mode span[style*="color: #0F172A"],
+.night-bridge-mode span[style*="color: rgb(15, 23, 42)"],
+.night-bridge-mode span[style*="color: #1E293B"],
+.night-bridge-mode span[style*="color: rgb(30, 41, 59)"],
+.night-bridge-mode div[style*="color: #0F172A"],
+.night-bridge-mode div[style*="color: rgb(15, 23, 42)"],
+.night-bridge-mode div[style*="color: #1E293B"],
+.night-bridge-mode div[style*="color: rgb(30, 41, 59)"],
+.night-bridge-mode strong[style*="color: #0F172A"],
+.night-bridge-mode strong[style*="color: #1E293B"],
+.night-bridge-mode h3[style*="color: #0F172A"],
+.night-bridge-mode h4[style*="color: #0F172A"],
+.night-bridge-mode .dio-shimeji-text {
+  color: #f8fafc !important;
+}
+
+/* SHIMEJI DIALOGUE BUBBLE NIGHT MODE */
+.night-bridge-mode .dio-shimeji-bubble {
+  background: linear-gradient(145deg, #1E293B 0%, #0F172A 100%) !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.4) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 16px rgba(56, 189, 248, 0.15) !important;
+}
+
+.night-bridge-mode .dio-shimeji-sleep-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .dio-shimeji-sleep-btn:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .dio-shimeji-close-btn {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode p[style*="color: #64748B"],
+.night-bridge-mode span[style*="color: #64748B"],
+.night-bridge-mode div[style*="color: #64748B"] {
+  color: #94a3b8 !important;
+}
+
+/* --------------------------------------------------------------------------
+   3b. DASHBOARD WIDGET CARDS (PET, DAILY GOAL, EBBINGHAUS)
+   -------------------------------------------------------------------------- */
+/* LIGHT MODE: CRISP WHITE ELEVATED CARDS */
+.dio-pet-widget-card,
+.dio-daily-goal-card,
+.dio-ebbinghaus-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(8, 126, 139, 0.16) !important;
+  box-shadow: 0 4px 16px rgba(8, 126, 139, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  color: #0f172a !important;
+}
+
+/* Pet Card Light Mode */
+.dio-pet-name {
+  color: #0f172a !important;
+}
+.dio-pet-quote {
+  color: #475569 !important;
+}
+.dio-pet-wardrobe-btn {
+  background: rgba(8, 126, 139, 0.08) !important;
+  border: 1px solid rgba(8, 126, 139, 0.25) !important;
+  color: #087e8b !important;
+  box-shadow: 0 2px 6px rgba(8, 126, 139, 0.08) !important;
+}
+
+/* Daily Goal Card Light Mode */
+.dio-card-title {
+  color: #0f172a !important;
+}
+.dio-card-count {
+  color: #087e8b !important;
+}
+.dio-daily-goal-card .streak-prog-bar {
+  background: #e2e8f0 !important;
+}
+.dio-card-sub {
+  color: #64748b !important;
+}
+.dio-card-link {
+  color: #087e8b !important;
+}
+
+/* Ebbinghaus Radar Light Mode */
+.dio-ebbinghaus-title {
+  color: #0f172a !important;
+}
+.dio-ebbinghaus-sub {
+  color: #64748b !important;
+}
+.dio-ebbinghaus-retention-label {
+  color: #64748b !important;
+}
+.dio-ebbinghaus-track {
+  background: #e2e8f0 !important;
+}
+.dio-ebbinghaus-metric-box {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 8px 10px !important;
+  text-align: center !important;
+}
+.dio-ebbinghaus-metric-box.urgent {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+.dio-ebbinghaus-metric-val {
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+.dio-ebbinghaus-metric-val.learned {
+  color: #0284c7 !important;
+}
+.dio-ebbinghaus-metric-val.mastered {
+  color: #16a34a !important;
+}
+.dio-ebbinghaus-metric-val.urgent {
+  color: #dc2626 !important;
+}
+.dio-ebbinghaus-metric-lbl {
+  font-size: 0.64rem !important;
+  color: #64748b !important;
+}
+.dio-ebbinghaus-metric-lbl.urgent {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+}
+
+/* NIGHT BRIDGE MODE OVERRIDES */
+.night-bridge-mode .dio-pet-widget-card,
+.night-bridge-mode .dio-daily-goal-card,
+.night-bridge-mode .dio-ebbinghaus-card {
+  background: linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%) !important;
+  border: 1px solid rgba(34, 211, 238, 0.22) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45), 0 0 1px rgba(34, 211, 238, 0.3) !important;
+  color: #f8fafc !important;
+}
+
+.night-bridge-mode .dio-pet-name {
+  color: #f8fafc !important;
+}
+.night-bridge-mode .dio-pet-quote {
+  color: #94a3b8 !important;
+}
+.night-bridge-mode .dio-pet-wardrobe-btn {
+  background: rgba(34, 211, 238, 0.1) !important;
+  border: 1px solid rgba(34, 211, 238, 0.35) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.night-bridge-mode .dio-card-title {
+  color: #f8fafc !important;
+}
+.night-bridge-mode .dio-card-count {
+  color: #38bdf8 !important;
+}
+.night-bridge-mode .dio-daily-goal-card .streak-prog-bar {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+.night-bridge-mode .dio-card-sub {
+  color: #94a3b8 !important;
+}
+.night-bridge-mode .dio-card-link {
+  color: #38bdf8 !important;
+}
+
+.night-bridge-mode .dio-ebbinghaus-title {
+  color: #f8fafc !important;
+}
+.night-bridge-mode .dio-ebbinghaus-sub {
+  color: #94a3b8 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-retention-label {
+  color: #cbd5e1 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-track {
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-box {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-box.urgent {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-val {
+  color: #e2e8f0 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-val.learned {
+  color: #38bdf8 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-val.mastered {
+  color: #4ade80 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-val.urgent {
+  color: #f87171 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-lbl {
+  color: #94a3b8 !important;
+}
+.night-bridge-mode .dio-ebbinghaus-metric-lbl.urgent {
+  color: #fca5a5 !important;
+}
+
+/* --------------------------------------------------------------------------
+   4. TOP BAR & USER STATS CLUSTER (LIGHT MODE DEFAULT)
+   -------------------------------------------------------------------------- */
+.dio-top-bar {
+  display: flex !important;
+  flex-direction: column !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border: 1px solid rgba(8, 126, 139, 0.22) !important;
+  box-shadow: 0 8px 24px rgba(8, 126, 139, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+  border-radius: 20px !important;
+  padding: 12px 14px !important;
+  margin-bottom: 14px !important;
+  gap: 10px !important;
+  transition: all 0.25s ease !important;
+}
+
+.dio-top-bar-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.dio-user-badge,
+.night-bridge-mode .dio-user-badge {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.dio-avatar-circle {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #0284c7, #087e8b) !important;
+  border: 2px solid rgba(8, 126, 139, 0.35) !important;
+  box-shadow: 0 0 12px rgba(8, 126, 139, 0.25) !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 800 !important;
+  font-size: 1.1rem !important;
+  flex-shrink: 0 !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dio-user-badge:hover .dio-avatar-circle {
+  transform: scale(1.05) !important;
+  border-color: #087e8b !important;
+}
+
+.dio-user-info {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+
+.dio-user-name-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+
+.dio-user-name {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  letter-spacing: -0.01em !important;
+}
+
+.dio-rank-mc1-badge {
+  font-size: 0.64rem !important;
+  font-weight: 800 !important;
+  color: #087e8b !important;
+  background: rgba(8, 126, 139, 0.1) !important;
+  border: 1px solid rgba(8, 126, 139, 0.28) !important;
+  padding: 1px 6px !important;
+  border-radius: 6px !important;
+  flex-shrink: 0 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.dio-user-rank-row {
+  display: flex !important;
+  align-items: center !important;
+  min-width: 0 !important;
+}
+
+.dio-user-rank-pill {
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  color: #087e8b !important;
+  background: rgba(8, 126, 139, 0.08) !important;
+  border: 1px solid rgba(8, 126, 139, 0.2) !important;
+  padding: 1px 7px !important;
+  border-radius: 6px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.dio-top-bar-actions {
+  display: flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+}
+
+.dio-theme-toggle-btn {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #087e8b !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dio-theme-toggle-btn:hover {
+  background: #e2e8f0 !important;
+  transform: scale(1.08) !important;
+  box-shadow: 0 0 10px rgba(8, 126, 139, 0.25) !important;
+}
+
+.dio-stats-cluster {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+  width: 100% !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgba(8, 126, 139, 0.12) !important;
+}
+
+.dio-stat-pill {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  border-radius: 99px !important;
+  padding: 4px 8px !important;
+  height: 34px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  user-select: none !important;
+}
+
+.dio-stat-pill:hover {
+  transform: translateY(-1px) !important;
+  border-color: rgba(8, 126, 139, 0.4) !important;
+}
+
+.dio-stat-pill .stat-value {
+  font-size: 0.88rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  line-height: 1 !important;
+}
+
+.dio-stat-pill .stat-unit {
+  font-size: 0.68rem !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  line-height: 1 !important;
+}
+
+.dio-stat-pill.streak.lit {
+  border-color: rgba(245, 158, 11, 0.5) !important;
+  color: #d97706 !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.2) !important;
+}
+
+.dio-stat-pill.streak.lit .stat-unit {
+  color: #b45309 !important;
+}
+
+.dio-stat-pill.streak.unlit {
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+
+.dio-stat-pill.hearts {
+  color: #e11d48 !important;
+  border-color: rgba(225, 29, 72, 0.2) !important;
+  background: #fff5f5 !important;
+}
+
+.dio-stat-pill.hearts .stat-unit {
+  color: #be123c !important;
+}
+
+.dio-stat-pill.xp {
+  color: #0284c7 !important;
+  border-color: rgba(2, 132, 199, 0.2) !important;
+  background: #f0f9ff !important;
+}
+
+.dio-stat-pill.xp .stat-unit {
+  color: #0369a1 !important;
+}
+
+/* --------------------------------------------------------------------------
+   4b. TOP BAR & USER STATS CLUSTER (NIGHT BRIDGE OVERRIDES)
+   -------------------------------------------------------------------------- */
+.night-bridge-mode .dio-top-bar {
+  background: rgba(10, 22, 38, 0.85) !important;
+  border-color: rgba(34, 211, 238, 0.22) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.night-bridge-mode .dio-avatar-circle {
+  background: linear-gradient(135deg, #0284c7, #1d4ed8) !important;
+  border-color: rgba(34, 211, 238, 0.5) !important;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.35) !important;
+}
+
+.night-bridge-mode .dio-user-name {
+  color: #f8fafc !important;
+}
+
+.night-bridge-mode .dio-rank-mc1-badge {
+  color: #22d3ee !important;
+  background: rgba(34, 211, 238, 0.15) !important;
+  border-color: rgba(34, 211, 238, 0.35) !important;
+}
+
+.night-bridge-mode .dio-user-rank-pill {
+  color: #22d3ee !important;
+  background: rgba(34, 211, 238, 0.1) !important;
+  border-color: rgba(34, 211, 238, 0.25) !important;
+}
+
+.night-bridge-mode .dio-theme-toggle-btn {
+  background: rgba(15, 36, 61, 0.85) !important;
+  border-color: rgba(34, 211, 238, 0.28) !important;
+  color: #22d3ee !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.night-bridge-mode .dio-theme-toggle-btn:hover {
+  background: rgba(34, 211, 238, 0.22) !important;
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.4) !important;
+}
+
+.night-bridge-mode .dio-stats-cluster {
+  border-top-color: rgba(34, 211, 238, 0.12) !important;
+}
+
+.night-bridge-mode .dio-stat-pill {
+  background: rgba(13, 27, 46, 0.85) !important;
+  border-color: rgba(34, 211, 238, 0.22) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+.night-bridge-mode .dio-stat-pill .stat-value {
+  color: #f8fafc !important;
+}
+
+.night-bridge-mode .dio-stat-pill .stat-unit {
+  color: #94a3b8 !important;
+}
+
+.night-bridge-mode .dio-stat-pill.streak.lit {
+  border-color: rgba(245, 158, 11, 0.6) !important;
+  color: #fbbf24 !important;
+  background: rgba(245, 158, 11, 0.16) !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3) !important;
+}
+
+.night-bridge-mode .dio-stat-pill.streak.lit .stat-unit {
+  color: #fde68a !important;
+}
+
+.night-bridge-mode .dio-stat-pill.streak.unlit {
+  color: #94a3b8 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(15, 36, 61, 0.6) !important;
+}
+
+.night-bridge-mode .dio-stat-pill.hearts {
+  color: #f87171 !important;
+  border-color: rgba(248, 113, 113, 0.25) !important;
+  background: rgba(13, 27, 46, 0.85) !important;
+}
+
+.night-bridge-mode .dio-stat-pill.hearts .stat-unit {
+  color: #fca5a5 !important;
+}
+
+.night-bridge-mode .dio-stat-pill.xp {
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+  background: rgba(13, 27, 46, 0.85) !important;
+}
+
+.night-bridge-mode .dio-stat-pill.xp .stat-unit {
+  color: #7dd3fc !important;
+}
+
+/* --------------------------------------------------------------------------
+   5. DEPARTMENT SWITCH (BAN MÁY / BAN BOONG)
+   -------------------------------------------------------------------------- */
+.dio-dept-switch {
+  background: #e2e8f0 !important;
+  border: 1px solid rgba(8, 126, 139, 0.15) !important;
+  border-radius: 16px !important;
+  padding: 5px !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) inset !important;
+}
+
+.dio-dept-btn {
+  color: #475569 !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dio-dept-btn.active {
+  background: linear-gradient(135deg, #087e8b 0%, #05515a 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(8, 126, 139, 0.35) !important;
+}
+
+.night-bridge-mode .dio-dept-switch {
+  background: rgba(8, 18, 32, 0.75) !important;
+  border: 1px solid rgba(34, 211, 238, 0.18) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) inset !important;
+}
+
+.night-bridge-mode .dio-dept-btn {
+  color: #94a3b8 !important;
+}
+
+.night-bridge-mode .dio-dept-btn.active {
+  background: linear-gradient(135deg, #087e8b 0%, #05515a 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(8, 126, 139, 0.5), 0 2px 0 #03393f !important;
+  border: 1px solid rgba(34, 211, 238, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. BOTTOM NAVIGATION (TACTICAL DOCK)
+   -------------------------------------------------------------------------- */
+.peaktalk-bottom-nav {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-top: 1px solid rgba(8, 126, 139, 0.18) !important;
+  box-shadow: 0 -6px 20px rgba(8, 126, 139, 0.08) !important;
+}
+
+.nav-bottom-item {
+  color: #64748b !important;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.nav-bottom-item.active {
+  color: #087e8b !important;
+  transform: scale(1.08) !important;
+}
+
+.nav-bottom-item:hover {
+  color: #0f172a !important;
+}
+
+.night-bridge-mode .peaktalk-bottom-nav {
+  background: rgba(6, 14, 26, 0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-top: 1px solid rgba(34, 211, 238, 0.24) !important;
+  box-shadow: 0 -12px 35px rgba(0, 0, 0, 0.85) !important;
+}
+
+.night-bridge-mode .nav-bottom-item {
+  color: #64748b !important;
+}
+
+.night-bridge-mode .nav-bottom-item.active {
+  color: #22d3ee !important;
+  filter: drop-shadow(0 0 12px rgba(34, 211, 238, 0.6)) !important;
+  transform: scale(1.08) !important;
+}
+
+.night-bridge-mode .nav-bottom-item:hover {
+  color: #94a3b8 !important;
+}
+
+/* --------------------------------------------------------------------------
+   7. TAB 2 (HỌC TẬP): SUB-TABS, SKILL TREE & DUOLINGO TREE
+   -------------------------------------------------------------------------- */
+.vocab-segmented-control {
+  background: #e2e8f0 !important;
+  border: 1px solid rgba(8, 126, 139, 0.15) !important;
+  border-radius: 16px !important;
+  padding: 5px !important;
+}
+
+.vocab-segment-btn {
+  background: transparent !important;
+  color: #475569 !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  padding: 8px 12px !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.vocab-segment-btn.active {
+  background: linear-gradient(135deg, #087e8b 0%, #05515a 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(8, 126, 139, 0.35) !important;
+}
+
+.duolingo-tree-section {
+  background: linear-gradient(180deg, #e9f8f6 0%, #f5faf9 100%) !important;
+  border: 1px solid #cceae6 !important;
+  border-radius: 28px !important;
+  box-shadow: 0 8px 24px rgba(8, 126, 139, 0.06) !important;
+}
+
+.duolingo-tree-section::before {
+  border-left: 2px dashed rgba(8, 126, 139, 0.25) !important;
+}
+
+.tree-node-title {
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border: 1.5px solid rgba(8, 126, 139, 0.25) !important;
+  box-shadow: 0 4px 0 #d9e7e8, 0 6px 14px rgba(0, 0, 0, 0.05) !important;
+}
+
+.tree-node-item:hover .tree-node-title {
+  border-color: #087e8b !important;
+  color: #087e8b !important;
+}
+
+.night-bridge-mode .vocab-segmented-control {
+  background: rgba(8, 18, 32, 0.85) !important;
+  border: 1px solid rgba(34, 211, 238, 0.2) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) inset !important;
+}
+
+.night-bridge-mode .vocab-segment-btn {
+  color: #94a3b8 !important;
+}
+
+.night-bridge-mode .vocab-segment-btn.active {
+  background: linear-gradient(135deg, #087e8b 0%, #05515a 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(8, 126, 139, 0.45), 0 2px 0 #03393f !important;
+  border: 1px solid rgba(34, 211, 238, 0.35) !important;
+}
+
+.night-bridge-mode .duolingo-tree-section {
+  background: linear-gradient(180deg, rgba(13, 31, 52, 0.9) 0%, rgba(6, 14, 24, 0.98) 100%) !important;
+  border: 1px solid rgba(34, 211, 238, 0.22) !important;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.7) !important;
+}
+
+.night-bridge-mode .duolingo-tree-section::before {
+  border-left: 2px dashed rgba(34, 211, 238, 0.35) !important;
+}
+
+.night-bridge-mode .tree-node-title {
+  color: #f8fafc !important;
+  background: rgba(13, 27, 46, 0.92) !important;
+  border: 1.5px solid rgba(34, 211, 238, 0.32) !important;
+  box-shadow: 0 4px 0 #051628, 0 8px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+.night-bridge-mode .tree-node-item:hover .tree-node-title {
+  border-color: #22d3ee !important;
+  color: #22d3ee !important;
+  box-shadow: 0 4px 0 #087e8b, 0 0 16px rgba(34, 211, 238, 0.45) !important;
+}
+
+/* --------------------------------------------------------------------------
+   8. TAB 2 (VOCABULARY & SMCP PHRASEBOOK)
+   -------------------------------------------------------------------------- */
+.vocab-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(8, 126, 139, 0.16) !important;
+  border-radius: 20px !important;
+  padding: 16px !important;
+  margin-bottom: 12px !important;
+  box-shadow: 0 4px 16px rgba(8, 126, 139, 0.08) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.vocab-word-title {
+  color: #087e8b !important;
+  font-weight: 800 !important;
+}
+
+.vocab-sentence {
+  color: #334155 !important;
+  font-size: 0.84rem !important;
+  line-height: 1.5 !important;
+}
+
+.vocab-meaning {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+  font-size: 0.82rem !important;
+}
+
+.vocab-search-box {
+  background: #ffffff !important;
+  border: 1px solid rgba(8, 126, 139, 0.22) !important;
+  border-radius: 14px !important;
+  padding: 8px 14px !important;
+  margin-bottom: 14px !important;
+  box-shadow: 0 2px 8px rgba(8, 126, 139, 0.06) !important;
+}
+
+.vocab-search-input {
+  background: transparent !important;
+  color: #0f172a !important;
+  font-weight: 500 !important;
+}
+
+.vocab-search-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+.night-bridge-mode .vocab-card {
+  background: linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%) !important;
+  border: 1px solid rgba(34, 211, 238, 0.2) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.night-bridge-mode .vocab-word-title {
+  color: #38bdf8 !important;
+  text-shadow: 0 0 14px rgba(56, 189, 248, 0.35) !important;
+}
+
+.night-bridge-mode .vocab-sentence {
+  color: #cbd5e1 !important;
+}
+
+.night-bridge-mode .vocab-meaning {
+  color: #22d3ee !important;
+}
+
+.night-bridge-mode .vocab-search-box {
+  background: rgba(8, 18, 32, 0.85) !important;
+  border: 1px solid rgba(34, 211, 238, 0.25) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) inset !important;
+}
+
+.night-bridge-mode .vocab-search-input {
+  color: #f8fafc !important;
+}
+
+.night-bridge-mode .vocab-search-input::placeholder {
+  color: #64748b !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. TAB 3 (LUYỆN TẬP MINIGAMES)
+   -------------------------------------------------------------------------- */
+.games-filter-scroll {
+  background: #e2e8f0 !important;
+  border: 1px solid rgba(8, 126, 139, 0.15) !important;
+  border-radius: 16px !important;
+  padding: 6px !important;
+}
+
+.game-tab-btn {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  border-radius: 20px !important;
+  padding: 6px 14px !important;
+  font-weight: 700 !important;
+}
+
+.game-tab-btn.active {
+  background: linear-gradient(135deg, #087e8b 0%, #05515a 100%) !important;
+  border-color: #087e8b !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(8, 126, 139, 0.35) !important;
+}
+
+.night-bridge-mode .games-filter-scroll {
+  background: rgba(8, 18, 32, 0.6) !important;
+  border: 1px solid rgba(34, 211, 238, 0.15) !important;
+}
+
+.night-bridge-mode .game-tab-btn {
+  background: rgba(13, 27, 46, 0.8) !important;
+  border: 1px solid rgba(34, 211, 238, 0.2) !important;
+  color: #94a3b8 !important;
+}
+
+.night-bridge-mode .game-tab-btn.active {
+  background: linear-gradient(135deg, #087e8b 0%, #05515a 100%) !important;
+  border-color: #22d3ee !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(8, 126, 139, 0.5) !important;
+}
+
+/* --------------------------------------------------------------------------
+   10. MODALS & OVERLAYS
+   -------------------------------------------------------------------------- */
+.dio-custom-alert-card,
+.dio-custom-confirm-card {
+  background: rgba(10, 22, 38, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1.5px solid rgba(34, 211, 238, 0.28) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}

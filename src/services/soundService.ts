@@ -427,10 +427,14 @@ class SoundService {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       try {
         window.speechSynthesis.cancel();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
+
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = lang;
-        utterance.rate = effectiveRate;
-        
+        utterance.rate = Math.max(0.45, Math.min(1.5, effectiveRate));
+
         const voices = window.speechSynthesis.getVoices();
         const matchedVoice = voices.find(v => v.lang.startsWith(lang.split('-')[0])) || voices[0];
         if (matchedVoice) utterance.voice = matchedVoice;
@@ -444,16 +448,35 @@ class SoundService {
         };
 
         utterance.onend = complete;
-        utterance.onerror = complete;
+        utterance.onerror = () => {
+          if (!ended) {
+            ended = true;
+            this.playFallbackAudio(cleanText, effectiveRate, onEnd);
+          }
+        };
 
-        window.speechSynthesis.speak(utterance);
+        // Small tick prevents Chrome async cancel race condition
+        setTimeout(() => {
+          try {
+            if (window.speechSynthesis.paused) {
+              window.speechSynthesis.resume();
+            }
+            window.speechSynthesis.speak(utterance);
+          } catch {
+            this.playFallbackAudio(cleanText, effectiveRate, onEnd);
+          }
+        }, 15);
         return;
       } catch (e) {
-        console.warn('[SoundService] Web speech synthesis failed', e);
+        console.warn('[SoundService] Web speech synthesis failed, using fallback', e);
       }
     }
 
-    // 3. Fallback: Safe audio load (bọc timeout chống treo khi gặp CORS / 429 Rate Limit)
+    // 3. Fallback: Google TTS Audio
+    this.playFallbackAudio(cleanText, effectiveRate, onEnd);
+  }
+
+  private playFallbackAudio(cleanText: string, effectiveRate: number, onEnd?: () => void) {
     try {
       if (this.currentAudio) {
         this.currentAudio.pause();
@@ -474,7 +497,6 @@ class SoundService {
 
       audio.onended = done;
       audio.onerror = done;
-      // An toàn tối đa 4 giây nếu Google chặn CORS / 429
       setTimeout(done, 4000);
 
       audio.play().catch(() => done());

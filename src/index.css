@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 @import './styles/tokens.css';
 @import './styles/buttons.css';
+@import './styles/ui-ux-pro-max.css';
 
 :root {
   --primary-blue: #087e8b;
@@ -3678,6 +3679,10 @@ img {
 }
 
 .flashcard-3d-audio-btn {
+  position: relative !important;
+  z-index: 50 !important;
+  transform: translateZ(30px) !important;
+  pointer-events: auto !important;
   width: 42px;
   height: 42px;
   border-radius: 50%;
@@ -3689,6 +3694,8 @@ img {
   justify-content: center;
   cursor: pointer;
   transition: all 0.12s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .flashcard-3d-audio-btn:hover {
@@ -3696,8 +3703,12 @@ img {
 }
 
 .flashcard-3d-audio-btn:active {
-  transform: translateY(3px);
+  transform: translateZ(25px) translateY(3px) !important;
   box-shadow: 0 1px 0 #BFDBFE;
+}
+
+.flashcard-3d-audio-btn * {
+  pointer-events: none !important;
 }
 
 .flashcard-ai-mnemonic-box-3d {
@@ -3731,6 +3742,636 @@ img {
 .flashcard-scene-3d:hover .flashcard-flip-pill-3d {
   background: rgba(37, 99, 235, 0.1);
   color: #2563EB;
+}
+
+/* Flashcard Semantic Inner Design System */
+.flashcard-front-tag {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #2563EB;
+  background: #EFF6FF;
+  padding: 5px 12px;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+  border: 1px solid #BFDBFE;
+}
+
+.flashcard-back-tag {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #059669;
+  background: #ECFDF5;
+  padding: 5px 12px;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+  border: 1px solid #A7F3D0;
+}
+
+.flashcard-retention-pill {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 5px 8px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flashcard-word-title {
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: #0F172A;
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+
+.flashcard-phonetic-sub {
+  font-size: 1.05rem;
+  color: #64748B;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.flashcard-sentence-box-3d {
+  font-size: 0.94rem;
+  color: #334155;
+  line-height: 1.55;
+  background: #F8FAFC;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1.5px solid #E2E8F0;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+}
+
+.flashcard-sentence-label {
+  font-size: 0.72rem;
+  color: #64748B;
+  font-weight: 800;
+  margin-bottom: 5px;
+  letter-spacing: 0.4px;
+}
+
+.flashcard-sentence-target {
+  color: #2563EB;
+  font-weight: 900;
+  text-decoration: underline;
+}
+
+.flashcard-hint-box-3d {
+  font-size: 0.82rem;
+  color: #0284C7;
+  background: #F0F9FF;
+  padding: 6px 14px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #BAE6FD;
+}
+
+.flashcard-meaning-title {
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: #0C4A6E;
+  margin-bottom: 6px;
+}
+
+.flashcard-phonetic-back {
+  font-size: 0.98rem;
+  color: #0284C7;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.flashcard-vi-sentence-box-3d {
+  font-size: 0.9rem;
+  color: #1E293B;
+  line-height: 1.5;
+  background: #FFFFFF;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid #BAE6FD;
+  margin-bottom: 12px;
+}
+
+.vocab-study-goal-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.daily-session-title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.daily-session-sub {
+  font-size: 0.75rem;
+  color: #64748B;
+  font-weight: 600;
+}
+
+.daily-session-score-pill {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #EFF6FF;
+  border-radius: 50%;
+  color: #2563EB;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.daily-prompt-card {
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.daily-prompt-label {
+  font-size: 0.82rem;
+  color: #2563EB;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.daily-prompt-meaning {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin-bottom: 6px;
+}
+
+.daily-prompt-context {
+  font-size: 0.85rem;
+  color: #64748B;
+  line-height: 1.4;
+}
+
+/* Base Study and Practice Semantic Tokens */
+.flashcard-recall-hint-box {
+  font-size: 0.85rem;
+  color: #334155;
+  margin-bottom: 12px;
+  background: #F1F5F9;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+}
+
+.flashcard-recall-hint-sub {
+  font-size: 0.75rem;
+  color: #64748B;
+  margin-top: 4px;
+}
+
+.blank-hint-pill {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  color: #0284C7;
+  background: #F0F9FF;
+  border: 1px solid #BAE6FD;
+  padding: 6px 12px;
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.blank-translation-chevron-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: #1E293B;
+  padding: 0;
+}
+
+.daily-feedback-box {
+  background: #EFF6FF;
+  border: 1.5px solid #BFDBFE;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.daily-feedback-correct-title {
+  font-size: 0.95rem;
+  color: #1E3A8A;
+}
+
+.daily-feedback-explanation {
+  font-size: 0.85rem;
+  color: #1E40AF;
+  line-height: 1.4;
+}
+
+.daily-feedback-listen-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #BFDBFE;
+}
+
+.daily-audio-btn-standard {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #0369A1;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.daily-audio-btn-slow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #D97706;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.daily-feedback-sentence-en {
+  margin-top: 8px;
+  color: #075985;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.daily-feedback-sentence-vi {
+  margin-top: 4px;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.daily-finish-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin-bottom: 6px;
+}
+
+.daily-finish-sub {
+  font-size: 0.9rem;
+  color: #64748B;
+  max-width: 320px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.daily-stat-card {
+  flex: 1;
+  border-radius: 16px;
+  padding: 14px 10px;
+  text-align: center;
+}
+
+.daily-stat-card.success {
+  background: #DCFCE7;
+  border: 1px solid #BBF7D0;
+}
+
+.daily-stat-card.success .daily-stat-card-label {
+  font-size: 0.72rem;
+  color: #16A34A;
+  font-weight: 800;
+}
+
+.daily-stat-card.success .daily-stat-card-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #15803D;
+  margin-top: 2px;
+}
+
+.daily-stat-card.xp {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+}
+
+.daily-stat-card.xp .daily-stat-card-label {
+  font-size: 0.72rem;
+  color: #2563EB;
+  font-weight: 800;
+}
+
+.daily-stat-card.xp .daily-stat-card-val {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1D4ED8;
+  margin-top: 2px;
+}
+
+.marlins-back-btn {
+  background: #F1F5F9;
+  border: none;
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.marlins-q-index {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1E293B;
+}
+
+.marlins-prompt-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.marlins-explanation-text {
+  font-size: 0.82rem;
+  color: #334155;
+  margin: 0;
+  line-height: 1.45;
+}
+
+.marlins-cert-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin: 10px 0 6px 0;
+  color: #0F172A;
+}
+
+.marlins-cert-sub {
+  font-size: 0.85rem;
+  color: #64748B;
+  margin-bottom: 16px;
+}
+
+.marlins-score-card {
+  background: #F8FAFC;
+  padding: 16px;
+  border-radius: 16px;
+  margin: 14px 0;
+  border: 1px solid #E2E8F0;
+}
+
+.marlins-score-subtitle {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.speaking-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.speaking-back-btn {
+  background: #F1F5F9;
+  border: none;
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.speaking-model-pill {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1D4ED8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 2px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.speaking-msg-bubble {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.speaking-msg-bubble.user {
+  background: #2F70E8;
+  color: white;
+}
+
+.speaking-msg-bubble.assistant {
+  background: white;
+  color: #1E293B;
+  box-shadow: var(--shadow-card);
+}
+
+.speaking-text-input {
+  flex: 1;
+  background: white;
+  border: 1px solid #E2E8F0;
+  padding: 12px 16px;
+  border-radius: 16px;
+  outline: none;
+  font-size: 0.9rem;
+  color: #0F172A;
+}
+
+.quiz-summary-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1E293B;
+  margin-bottom: 6px;
+}
+
+.quiz-summary-sub {
+  font-size: 0.85rem;
+  color: #64748B;
+  margin-bottom: 20px;
+}
+
+.quiz-stat-card {
+  flex: 1;
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.quiz-stat-card.xp {
+  background: #EFF6FF;
+}
+
+.quiz-stat-card.xp .quiz-stat-card-label {
+  font-size: 0.75rem;
+  color: #2563EB;
+  font-weight: 700;
+}
+
+.quiz-stat-card.xp .quiz-stat-card-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #1E40AF;
+  margin-top: 2px;
+}
+
+.quiz-stat-card.streak {
+  background: #FFF7ED;
+}
+
+.quiz-stat-card.streak .quiz-stat-card-label {
+  font-size: 0.75rem;
+  color: #EA580C;
+  font-weight: 700;
+}
+
+.quiz-stat-card.streak .quiz-stat-card-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #C2410C;
+  margin-top: 2px;
+}
+
+.duel-header-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0F172A;
+}
+
+.duel-close-btn {
+  background: #F1F5F9;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748B;
+}
+
+.duel-challenge-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0284C7;
+  background: #E0F2FE;
+  padding: 4px 12px;
+  border-radius: 16px;
+}
+
+.duel-explanation-box {
+  font-size: 0.8rem;
+  color: #475569;
+  background: #F8FAFC;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #E2E8F0;
+}
+
+.duel-finished-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin-top: 8px;
+}
+
+.duel-finished-sub {
+  font-size: 0.85rem;
+  color: #64748B;
+  margin: 6px 0 18px 0;
+}
+
+.duel-stat-card {
+  flex: 1;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.duel-stat-card.xp {
+  background: #EFF6FF;
+}
+
+.duel-stat-card.xp .duel-stat-card-label {
+  font-size: 0.75rem;
+  color: #2563EB;
+  font-weight: 700;
+}
+
+.duel-stat-card.xp .duel-stat-card-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #1E40AF;
+  margin-top: 2px;
+}
+
+.duel-stat-card.coins {
+  background: #FEF3C7;
+}
+
+.duel-stat-card.coins .duel-stat-card-label {
+  font-size: 0.75rem;
+  color: #B45309;
+  font-weight: 700;
+}
+
+.duel-stat-card.coins .duel-stat-card-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #92400E;
+  margin-top: 2px;
+}
+
+.emergency-alert-banner {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.emergency-solas-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #0F172A;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emergency-command-text {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0F172A;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
 }
 
 /* 3D Navigation Row */
@@ -5730,14 +6371,126 @@ button:active:not(:disabled),
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
+/* --------------------------------------------------------------------------
+   COMPREHENSIVE NIGHT BRIDGE MODE PALETTE & CONTRAST SUITE
+   -------------------------------------------------------------------------- */
+
+/* Top Navigation & Status */
+.night-bridge-mode .vocab-study-top-nav,
+.night-bridge-mode .daily-session-topbar,
+.night-bridge-mode .marlins-exam-topbar {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .vocab-study-close-btn,
+.night-bridge-mode .vocab-study-settings-btn {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .vocab-study-close-btn svg,
+.night-bridge-mode .vocab-study-settings-btn svg {
+  stroke: #F8FAFC !important;
+}
+
+.night-bridge-mode .vocab-study-goal-title,
+.night-bridge-mode .daily-session-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .daily-session-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .daily-session-score-pill {
+  background: rgba(37, 99, 235, 0.25) !important;
+  color: #60A5FA !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+.night-bridge-mode .vocab-study-prog-bar {
+  background-color: #1E293B !important;
+}
+
+/* 3D Stepper */
+.night-bridge-mode .study-flow-stepper {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .study-step-badge {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .study-step-badge.active {
+  background: #1E293B !important;
+  color: #60A5FA !important;
+  border-color: rgba(59, 130, 246, 0.45) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5) !important;
+}
+
+.night-bridge-mode .study-step-badge.completed {
+  color: #34D399 !important;
+}
+
+.night-bridge-mode .step-num {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .study-step-badge.active .step-num {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+}
+
+.night-bridge-mode .study-step-badge.completed .step-num {
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+}
+
+.night-bridge-mode .step-connector {
+  background: #1E293B !important;
+}
+
+/* 3D Navigation Row */
+.night-bridge-mode .flashcard-nav-btn-3d {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F1F5F9 !important;
+  box-shadow: 0 4px 0 #0F172A !important;
+}
+
+.night-bridge-mode .flashcard-nav-btn-3d:hover:not(:disabled) {
+  border-color: #38BDF8 !important;
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .flashcard-nav-btn-3d:active:not(:disabled) {
+  box-shadow: 0 1px 0 #0F172A !important;
+}
+
+.night-bridge-mode .flashcard-nav-btn-3d:disabled {
+  opacity: 0.3 !important;
+  box-shadow: none !important;
+}
+
+.night-bridge-mode .flashcard-counter-pill-3d {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .flashcard-counter-pill-3d span {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .flashcard-counter-pill-3d strong {
+  color: #F8FAFC !important;
+}
+
+/* 3D Flashcard Faces & Inners */
 .night-bridge-mode .flashcard-face-3d.front {
   background: linear-gradient(160deg, #111827 0%, #0F172A 100%) !important;
   border-color: #1E293B !important;
   box-shadow: 0 10px 0 #0F172A, 0 18px 28px -6px rgba(0, 0, 0, 0.5) !important;
-}
-
-.night-bridge-mode .flashcard-face-3d.front > div > div:nth-child(2) {
-  color: #F8FAFC !important;
 }
 
 .night-bridge-mode .flashcard-face-3d.back {
@@ -5746,14 +6499,289 @@ button:active:not(:disabled),
   box-shadow: 0 10px 0 #0D203D, 0 18px 28px -6px rgba(0, 0, 0, 0.5) !important;
 }
 
-.night-bridge-mode .flashcard-face-3d.back > div > div:nth-child(2) {
+.night-bridge-mode .flashcard-front-tag {
+  background: rgba(37, 99, 235, 0.2) !important;
+  color: #60A5FA !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+.night-bridge-mode .flashcard-back-tag {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #34D399 !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.night-bridge-mode .flashcard-retention-pill {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.night-bridge-mode .flashcard-word-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .flashcard-phonetic-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .flashcard-sentence-box-3d {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border-color: #1E293B !important;
+  color: #E2E8F0 !important;
+}
+
+.night-bridge-mode .flashcard-sentence-label {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .flashcard-sentence-target {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .flashcard-hint-box-3d {
+  background: rgba(2, 132, 199, 0.18) !important;
+  border-color: rgba(2, 132, 199, 0.35) !important;
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .flashcard-flip-pill-3d {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #CBD5E1 !important;
+}
+
+.night-bridge-mode .flashcard-meaning-title {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .flashcard-phonetic-back {
+  color: #7DD3FC !important;
+}
+
+.night-bridge-mode .flashcard-vi-sentence-box-3d {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border-color: #1E293B !important;
+  color: #E2E8F0 !important;
+}
+
+.night-bridge-mode .flashcard-ai-mnemonic-box-3d {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  color: #FBBF24 !important;
+}
+
+.night-bridge-mode .flashcard-3d-audio-btn {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 0 #0F172A !important;
+}
+
+.night-bridge-mode .flashcard-3d-audio-btn.slow {
+  background: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+.night-bridge-mode .flashcard-3d-audio-btn:hover {
+  background: #27354A !important;
+}
+
+.night-bridge-mode .flashcard-3d-audio-btn:active {
+  box-shadow: 0 1px 0 #0F172A !important;
+}
+
+/* Bottom Action Buttons */
+.night-bridge-mode .study-action-btn-3d.secondary {
+  background: #1E293B !important;
+  color: #F1F5F9 !important;
+  border-color: #334155 !important;
+  box-shadow: 0 5px 0 #0F172A, 0 8px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+.night-bridge-mode .study-action-btn-3d.secondary:hover {
+  background: #27354A !important;
+}
+
+.night-bridge-mode .study-action-btn-3d.secondary:active {
+  box-shadow: 0 1px 0 #0F172A !important;
+}
+
+/* Recall Screen */
+.night-bridge-mode .flashcard-recall-card {
+  background: #111827 !important;
+  border-color: #2563EB !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .flashcard-recall-tag {
+  background: rgba(37, 99, 235, 0.2) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
   color: #60A5FA !important;
 }
 
-.night-bridge-mode .dio-user-badge,
+.night-bridge-mode .flashcard-recall-sentence {
+  background: #0F172A !important;
+  border-color: #1E293B !important;
+  color: #F1F5F9 !important;
+}
+
+.night-bridge-mode .flashcard-recall-input {
+  background: #0F172A !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .flashcard-ai-eval-box {
+  background: #1E293B !important;
+  color: #E2E8F0 !important;
+}
+
+.night-bridge-mode .flashcard-ai-eval-box.correct {
+  background: rgba(22, 163, 74, 0.18) !important;
+}
+
+.night-bridge-mode .flashcard-ai-eval-box.wrong {
+  background: rgba(220, 38, 38, 0.18) !important;
+}
+
+.night-bridge-mode .flashcard-ai-eval-box.typo {
+  background: rgba(217, 119, 6, 0.18) !important;
+}
+
+/* Cloze Mode & Translation Card */
+.night-bridge-mode .blank-sentence-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .blank-translation-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .blank-vietnamese-keyword {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .blank-vietnamese-full-sentence {
+  color: #CBD5E1 !important;
+}
+
+.night-bridge-mode .study-mic-circle-btn {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F1F5F9 !important;
+}
+
+.night-bridge-mode .blank-input-box {
+  background-color: #0F172A !important;
+  border-color: #334155 !important;
+  color: #38BDF8 !important;
+}
+
+/* Daily Protocol 25 Questions */
+.night-bridge-mode .daily-session-screen {
+  background-color: #090D16 !important;
+}
+
+.night-bridge-mode .daily-prompt-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .daily-prompt-label {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .daily-prompt-meaning {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .daily-prompt-context {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .duel-option-btn {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+  color: #F1F5F9 !important;
+}
+
+.night-bridge-mode .duel-option-btn:hover {
+  background: #1E293B !important;
+  border-color: #38BDF8 !important;
+}
+
+/* Blitz Quiz & 15 Games */
+.night-bridge-mode .quiz-top-bar button {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .quiz-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .quiz-option-btn {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F1F5F9 !important;
+}
+
+.night-bridge-mode .quiz-option-btn:hover {
+  background: #27354A !important;
+  border-color: #38BDF8 !important;
+}
+
+.night-bridge-mode .quiz-word-highlight {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .duel-modal-box {
+  background: #111827 !important;
+  border: 1.5px solid #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .duel-question-text {
+  color: #F8FAFC !important;
+}
+
+/* Marlins Exam */
+.night-bridge-mode .marlins-exam-screen {
+  background: #090D16 !important;
+}
+
+.night-bridge-mode .marlins-question-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .marlins-question-card h3 {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .marlins-opt-item {
+  background: #1E293B !important;
+  border-color: #334155 !important;
+  color: #F1F5F9 !important;
+}
+
+.night-bridge-mode .marlins-opt-item:hover {
+  background: #27354A !important;
+  border-color: #38BDF8 !important;
+}
+
+.night-bridge-mode .marlins-audio-btn {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: #38BDF8 !important;
+}
+
 .night-bridge-mode .dio-dept-switch,
-.night-bridge-mode .audio-controls-pill,
-.night-bridge-mode .flashcard-counter-pill-3d {
+.night-bridge-mode .audio-controls-pill {
   background-color: #1E293B !important;
   border-color: #334155 !important;
   color: #F1F5F9 !important;
@@ -5765,22 +6793,351 @@ button:active:not(:disabled),
   color: #F8FAFC !important;
 }
 
-.night-bridge-mode .blank-input-box {
-  background-color: #0F172A !important;
-  border-color: #334155 !important;
-  color: #38BDF8 !important;
-}
-
-.night-bridge-mode .daily-session-screen {
-  background-color: #090D16 !important;
-}
-
 .night-bridge-mode .peaktalk-nav-btn {
   color: #94A3B8 !important;
 }
 
 .night-bridge-mode .peaktalk-nav-btn.active {
   color: #38BDF8 !important;
+}
+
+/* Recall Mode Night Overrides */
+.night-bridge-mode .flashcard-recall-hint-box {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border-color: #334155 !important;
+  color: #E2E8F0 !important;
+}
+
+.night-bridge-mode .flashcard-recall-hint-box strong {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .flashcard-recall-hint-sub {
+  color: #94A3B8 !important;
+}
+
+/* Cloze Mode Night Overrides */
+.night-bridge-mode .blank-hint-pill {
+  background: rgba(3, 105, 161, 0.25) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .blank-translation-chevron-btn {
+  color: #94A3B8 !important;
+}
+
+/* Daily Protocol 25 Questions Night Overrides */
+.night-bridge-mode .daily-feedback-box {
+  background: #111827 !important;
+  border-color: #1E3A8A !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .daily-feedback-correct-title {
+  color: #60A5FA !important;
+}
+
+.night-bridge-mode .daily-feedback-explanation {
+  color: #93C5FD !important;
+}
+
+.night-bridge-mode .daily-feedback-listen-section {
+  border-top-color: #1E293B !important;
+}
+
+.night-bridge-mode .daily-audio-btn-standard {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .daily-audio-btn-slow {
+  color: #FBBF24 !important;
+}
+
+.night-bridge-mode .daily-feedback-sentence-en {
+  color: #E0F2FE !important;
+}
+
+.night-bridge-mode .daily-feedback-sentence-vi {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .daily-finish-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .daily-finish-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .daily-stat-card.success {
+  background: rgba(22, 163, 74, 0.18) !important;
+  border-color: rgba(34, 197, 94, 0.35) !important;
+}
+
+.night-bridge-mode .daily-stat-card.success .daily-stat-card-label {
+  color: #4ADE80 !important;
+}
+
+.night-bridge-mode .daily-stat-card.success .daily-stat-card-val {
+  color: #86EFAC !important;
+}
+
+.night-bridge-mode .daily-stat-card.xp {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+}
+
+.night-bridge-mode .daily-stat-card.xp .daily-stat-card-label {
+  color: #60A5FA !important;
+}
+
+.night-bridge-mode .daily-stat-card.xp .daily-stat-card-val {
+  color: #93C5FD !important;
+}
+
+/* Marlins STCW Simulator Night Overrides */
+.night-bridge-mode .marlins-back-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .marlins-q-index {
+  color: #F1F5F9 !important;
+}
+
+.night-bridge-mode .marlins-prompt-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .marlins-explanation-text {
+  color: #CBD5E1 !important;
+}
+
+.night-bridge-mode .marlins-cert-modal {
+  background: #111827 !important;
+  border: 1px solid #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .marlins-cert-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .marlins-cert-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .marlins-score-card {
+  background: #0F172A !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .marlins-score-subtitle {
+  color: #CBD5E1 !important;
+}
+
+/* Speaking AI Mode Night Overrides */
+.night-bridge-mode .speaking-header-bar {
+  background: #111827 !important;
+  border: 1px solid #1E293B !important;
+  box-shadow: none !important;
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .speaking-header-bar h4 {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .speaking-back-btn {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .speaking-model-pill {
+  background: rgba(37, 99, 235, 0.2) !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  color: #60A5FA !important;
+}
+
+.night-bridge-mode .speaking-msg-bubble.assistant {
+  background: #1E293B !important;
+  border: 1px solid #334155 !important;
+  color: #F8FAFC !important;
+  box-shadow: none !important;
+}
+
+.night-bridge-mode .speaking-text-input {
+  background: #0F172A !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
+}
+
+/* Blitz Quiz Summary Night Overrides */
+.night-bridge-mode .quiz-summary-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .quiz-summary-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .quiz-stat-card.xp {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+.night-bridge-mode .quiz-stat-card.xp .quiz-stat-card-label {
+  color: #60A5FA !important;
+}
+
+.night-bridge-mode .quiz-stat-card.xp .quiz-stat-card-val {
+  color: #93C5FD !important;
+}
+
+.night-bridge-mode .quiz-stat-card.streak {
+  background: rgba(234, 88, 12, 0.18) !important;
+  border: 1px solid rgba(249, 115, 22, 0.35) !important;
+}
+
+.night-bridge-mode .quiz-stat-card.streak .quiz-stat-card-label {
+  color: #FB923C !important;
+}
+
+.night-bridge-mode .quiz-stat-card.streak .quiz-stat-card-val {
+  color: #FDBA74 !important;
+}
+
+/* Maritime Games & Duel Night Overrides */
+.night-bridge-mode .duel-header-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .duel-close-btn {
+  background: #1E293B !important;
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .duel-challenge-pill {
+  background: rgba(3, 105, 161, 0.25) !important;
+  color: #38BDF8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+}
+
+.night-bridge-mode .duel-target-pill {
+  background: rgba(15, 23, 42, 0.8) !important;
+  color: #38BDF8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
+
+.night-bridge-mode .duel-target-pill span {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .duel-target-pill span[style*="color: #60A5FA"] {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .duel-explanation-box {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border-color: #334155 !important;
+  color: #CBD5E1 !important;
+}
+
+.night-bridge-mode .duel-finished-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .duel-finished-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .duel-stat-card.xp {
+  background: rgba(37, 99, 235, 0.18) !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+
+.night-bridge-mode .duel-stat-card.xp .duel-stat-card-label {
+  color: #60A5FA !important;
+}
+
+.night-bridge-mode .duel-stat-card.xp .duel-stat-card-val {
+  color: #93C5FD !important;
+}
+
+.night-bridge-mode .duel-stat-card.coins {
+  background: rgba(217, 119, 6, 0.18) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+.night-bridge-mode .duel-stat-card.coins .duel-stat-card-label {
+  color: #FBBF24 !important;
+}
+
+.night-bridge-mode .duel-stat-card.coins .duel-stat-card-val {
+  color: #FDE68A !important;
+}
+
+/* Practice 15 Games Grid & Cards */
+.night-bridge-mode .game-card-item {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .game-card-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .game-card-desc {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .game-card-footer {
+  border-top-color: #1E293B !important;
+  color: #64748B !important;
+}
+
+/* SMCP Phrases Night Overrides */
+.night-bridge-mode .smcp-item-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .smcp-item-phrase {
+  color: #38BDF8 !important;
+}
+
+.night-bridge-mode .smcp-item-sub {
+  color: #94A3B8 !important;
+}
+
+.night-bridge-mode .smcp-item-meaning {
+  color: #CBD5E1 !important;
+}
+
+/* Emergency SOLAS Night Overrides */
+.night-bridge-mode .emergency-screen {
+  background: #090D16 !important;
+}
+
+.night-bridge-mode .emergency-alert-banner {
+  background: rgba(153, 27, 27, 0.25) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.night-bridge-mode .emergency-solas-title {
+  color: #F8FAFC !important;
+}
+
+.night-bridge-mode .emergency-step-item-card {
+  background: #111827 !important;
+  border-color: #1E293B !important;
+}
+
+.night-bridge-mode .emergency-command-text {
+  color: #F8FAFC !important;
 }
 
 /* ========================================================================== */

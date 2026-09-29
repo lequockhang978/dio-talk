@@ -181,6 +181,7 @@ export interface FullUserProgress {
   department: 'engine' | 'deck';
   rank: string;
   streakDays: number;
+  lastStreakDate?: string;
   hearts: number;
   xp: number;
   coins: number;
@@ -288,6 +289,7 @@ export const loadUserFullProgressFromCloud = async (uid: string): Promise<FullUs
         department: (data.department === 'deck' ? 'deck' : 'engine'),
         rank: data.rank || (data.department === 'deck' ? 'Thủy thủ lái (Helmsman / AB)' : 'Thợ máy (Motorman)'),
         streakDays: Number(data.streakDays ?? data.streak) || 0,
+        lastStreakDate: data.lastStreakDate || undefined,
         hearts: Number(data.hearts) || 5,
         xp: Number(data.xp) || 0,
         coins: Number(data.coins) || 100,

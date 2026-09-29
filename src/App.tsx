@@ -323,6 +323,7 @@ export default function App() {
               // Bỏ lỡ ít nhất 1 ngày mà không đạt 25 câu -> MẤT STREAK, RESET VỀ 0!
               parsed.streakDays = 0;
               localStorage.setItem('dio_streak_broken_flag', 'true');
+              localStorage.setItem('dio_last_streak_date', yesterdayKey);
             }
           }
         }
@@ -671,6 +672,15 @@ export default function App() {
 
     saveMasteryRecord(currentTerm.id, currentTerm.word, srsGrade >= 3, srsGrade);
 
+    if (srsGrade >= 2) {
+      setCompletedToday(prev => prev + 1);
+      setUserProfile(prev => ({
+        ...prev,
+        xp: prev.xp + 10,
+        coins: (prev.coins || 100) + 1
+      }));
+    }
+
     setTermsState(prev => prev.map((t, idx) => {
       if (idx === vocabIndex) {
         const newDots = Math.min(5, Math.max(1, t.dots + deltaDots));
@@ -765,6 +775,7 @@ export default function App() {
       ...newProfile,
       completedToday,
       streakDays: newProfile.streakDays,
+      lastStreakDate: localStorage.getItem('dio_last_streak_date') || getYesterdayDateKey(),
       xp: newProfile.xp,
       hearts: newProfile.hearts
     });
@@ -903,7 +914,14 @@ export default function App() {
           coins: (prev.coins || 100) + 25
         };
         const uid = getCurrentUserId();
-        if (uid) saveProfileToCloud(uid, updated);
+        if (uid) {
+          saveProfileToCloud(uid, { ...updated, lastStreakDate: todayKey });
+          saveUserFullProgressToCloud(uid, {
+            ...updated,
+            completedToday,
+            lastStreakDate: todayKey
+          });
+        }
         return updated;
       });
     }
@@ -943,16 +961,22 @@ export default function App() {
         icon: 'info'
       });
     };
+    (window as any).__setCustomAlert = setCustomAlert;
 
     if (localStorage.getItem('dio_streak_broken_flag') === 'true') {
       localStorage.removeItem('dio_streak_broken_flag');
       setTimeout(() => {
-        setCustomAlert({
-          title: 'Ngọn Lửa Streak Đã Tắt! 🕯️',
-          message: 'Bạn đã bỏ lỡ bài học ngày hôm qua nên chuỗi ngày đã bị reset về 0. Hãy hoàn thành 25 câu hôm nay để thắp lại ngọn lửa mới!',
-          icon: 'warning'
+        setUserProfile(curr => {
+          if (curr.streakDays === 0) {
+            setCustomAlert({
+              title: 'Ngọn Lửa Streak Đã Tắt! 🕯️',
+              message: 'Bạn đã bỏ lỡ bài học ngày hôm qua nên chuỗi ngày đã bị reset về 0. Hãy hoàn thành 25 câu hôm nay để thắp lại ngọn lửa mới!',
+              icon: 'warning'
+            });
+          }
+          return curr;
         });
-      }, 600);
+      }, 800);
     }
 
     return () => {
@@ -1041,9 +1065,19 @@ export default function App() {
         try {
           localStorage.setItem('dio_user_profile', JSON.stringify(updated));
           localStorage.setItem('dio_dept', updated.department);
+          if (streak > 0) {
+            localStorage.removeItem('dio_streak_broken_flag');
+            localStorage.setItem('dio_last_streak_date', cloud.lastStreakDate || getYesterdayDateKey());
+          }
         } catch { }
         return updated;
       });
+
+      // Clear false streak broken alert if cloud streak is active
+      if (cloud.streakDays > 0) {
+        localStorage.removeItem('dio_streak_broken_flag');
+        setCustomAlert(prev => (prev?.title?.includes('Streak') ? null : prev));
+      }
 
       if (cloud.department) {
         setCurrentDepartment(cloud.department);
@@ -1709,8 +1743,20 @@ export default function App() {
   // Settings State
   const [apiKey] = useState<string>(() => localStorage.getItem('peaktalk_apikey') || DEFAULT_API_KEY);
   const [apiUrl] = useState<string>(() => localStorage.getItem('peaktalk_apiurl') || DEFAULT_API_URL);
-  const [nightMode, setNightMode] = useState<boolean>(() => localStorage.getItem('dio_night_bridge_mode') === 'true');
   const [isSlowAudio, setIsSlowAudio] = useState<boolean>(() => soundService.getIsSlowMode());
+  const [nightMode, setNightMode] = useState<boolean>(() => {
+    const isNight = localStorage.getItem('dio_night_bridge_mode') === 'true';
+    if (typeof document !== 'undefined') {
+      if (isNight) {
+        document.documentElement.classList.add('night-bridge-mode');
+        document.body?.classList.add('night-bridge-mode');
+      } else {
+        document.documentElement.classList.remove('night-bridge-mode');
+        document.body?.classList.remove('night-bridge-mode');
+      }
+    }
+    return isNight;
+  });
 
   const toggleSlowAudio = () => {
     const next = soundService.toggleSlowMode();
@@ -1732,6 +1778,17 @@ export default function App() {
       return next;
     });
   };
+
+  // Sync Night Bridge Mode to html and body elements
+  useEffect(() => {
+    if (nightMode) {
+      document.documentElement.classList.add('night-bridge-mode');
+      document.body.classList.add('night-bridge-mode');
+    } else {
+      document.documentElement.classList.remove('night-bridge-mode');
+      document.body.classList.remove('night-bridge-mode');
+    }
+  }, [nightMode]);
 
   // AI Model Selection Modal States
   const [showModelModal, setShowModelModal] = useState<boolean>(false);
@@ -2440,54 +2497,103 @@ export default function App() {
   // MANDATORY AUTH GUARD: Phải đăng ký / đăng nhập tài khoản mới được vào học
   if (!isLoggedIn && localStorage.getItem('dio_auth_bypass') !== 'true') {
     return (
-      <div className="dio-auth-screen">
-        <div className="dio-auth-card">
-          <div className="dio-auth-hero">
-            <div className="dio-auth-logo-badge">🚢</div>
-            <h1 className="dio-auth-app-title">Dio Talk</h1>
-            <p className="dio-auth-subtitle">
+      <div className="dio-auth-screen" style={{
+        background: 'radial-gradient(circle at 50% 0%, #0d2238 0%, #050b14 70%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20
+      }}>
+        <div className="dio-auth-card" style={{
+          background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+          border: '1px solid rgba(34, 211, 238, 0.25)',
+          borderRadius: 24,
+          padding: '28px 22px',
+          boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          maxWidth: 380,
+          width: '100%'
+        }}>
+          <div className="dio-auth-hero" style={{ textAlign: 'center', marginBottom: 20 }}>
+            <div className="dio-auth-logo-badge" style={{
+              width: 68,
+              height: 68,
+              borderRadius: 20,
+              background: 'linear-gradient(135deg, #087e8b 0%, #05515a 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2rem',
+              margin: '0 auto 12px',
+              border: '1.5px solid rgba(34, 211, 238, 0.35)',
+              boxShadow: '0 8px 24px rgba(8, 126, 139, 0.4)'
+            }}>🚢</div>
+            <h1 className="dio-auth-app-title" style={{ fontSize: '1.6rem', fontWeight: 800, color: '#F8FAFC', marginBottom: 4 }}>Dio Talk</h1>
+            <p className="dio-auth-subtitle" style={{ fontSize: '0.82rem', color: '#94A3B8', lineHeight: 1.45 }}>
               Tiếng Anh Hàng Hải Chuyên Nghiệp<br />
               Khai thác máy & Điều khiển tàu biển
             </p>
           </div>
 
           <div style={{
-            background: '#EFF6FF',
-            border: '1.5px solid #BFDBFE',
+            background: 'linear-gradient(145deg, rgba(8, 126, 139, 0.2) 0%, rgba(13, 27, 46, 0.9) 100%)',
+            border: '1px solid rgba(34, 211, 238, 0.3)',
             borderRadius: 16,
             padding: '12px 14px',
             marginBottom: 18,
-            textAlign: 'center'
+            textAlign: 'center',
+            boxShadow: '0 6px 18px rgba(0, 0, 0, 0.35)'
           }}>
-            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1D4ED8' }}>
+            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#38BDF8' }}>
               🔒 Yêu cầu đăng nhập tài khoản Google
             </span>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#475569', lineHeight: 1.4 }}>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.78rem', color: '#94A3B8', lineHeight: 1.4 }}>
               Hồ sơ thuyền viên, bảng xếp hạng và chứng chỉ STCW được lưu trữ đồng bộ trên tài khoản Google của bạn.
             </p>
           </div>
 
           {/* CHỌN BAN CHUYÊN MÔN HÀNG HẢI */}
-          <label className="dio-input-label" style={{ textAlign: 'left', marginBottom: 6, display: 'block' }}>
+          <label className="dio-input-label" style={{ textAlign: 'left', marginBottom: 8, display: 'block', color: '#22D3EE', fontSize: '0.8rem', fontWeight: 700 }}>
             Ban chuyên môn hàng hải:
           </label>
-          <div className="dio-dept-radio-grid">
+          <div className="dio-dept-radio-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
             <div
               className={`dio-dept-radio-card ${currentDepartment === 'engine' ? 'selected' : ''}`}
               onClick={() => handleSwitchDepartment('engine')}
+              style={{
+                background: currentDepartment === 'engine' ? 'linear-gradient(145deg, rgba(8, 126, 139, 0.35) 0%, rgba(13, 27, 46, 0.95) 100%)' : 'rgba(15, 36, 61, 0.65)',
+                border: currentDepartment === 'engine' ? '1.5px solid #22D3EE' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 16,
+                padding: '14px 10px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                boxShadow: currentDepartment === 'engine' ? '0 0 16px rgba(34, 211, 238, 0.35)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
               <span style={{ fontSize: '1.6rem' }}>⚙️</span>
-              <div className="dio-dept-radio-title">Ban Máy</div>
-              <div className="dio-dept-radio-sub">Engineering</div>
+              <div className="dio-dept-radio-title" style={{ fontSize: '0.88rem', fontWeight: 800, color: '#F8FAFC', marginTop: 4 }}>Ban Máy</div>
+              <div className="dio-dept-radio-sub" style={{ fontSize: '0.7rem', color: currentDepartment === 'engine' ? '#22D3EE' : '#94A3B8' }}>Engineering</div>
             </div>
 
             <div
               className={`dio-dept-radio-card ${currentDepartment === 'deck' ? 'selected' : ''}`}
               onClick={() => handleSwitchDepartment('deck')}
+              style={{
+                background: currentDepartment === 'deck' ? 'linear-gradient(145deg, rgba(8, 126, 139, 0.35) 0%, rgba(13, 27, 46, 0.95) 100%)' : 'rgba(15, 36, 61, 0.65)',
+                border: currentDepartment === 'deck' ? '1.5px solid #22D3EE' : '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 16,
+                padding: '14px 10px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                boxShadow: currentDepartment === 'deck' ? '0 0 16px rgba(34, 211, 238, 0.35)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
             >
               <span style={{ fontSize: '1.6rem' }}>🧭</span>
-              <div className="dio-dept-radio-title">Ban Boong</div>
-              <div className="dio-dept-radio-sub">Navigation</div>
+              <div className="dio-dept-radio-title" style={{ fontSize: '0.88rem', fontWeight: 800, color: '#F8FAFC', marginTop: 4 }}>Ban Boong</div>
+              <div className="dio-dept-radio-sub" style={{ fontSize: '0.7rem', color: currentDepartment === 'deck' ? '#22D3EE' : '#94A3B8' }}>Navigation</div>
             </div>
           </div>
 
@@ -2498,13 +2604,29 @@ export default function App() {
             onClick={() => handleGoogleSignIn()}
             disabled={isGoogleLoading}
             id="google-hero-signin-btn"
-            style={{ marginTop: 8, padding: '16px 20px', fontSize: '1.02rem', width: '100%' }}
+            style={{
+              marginTop: 8,
+              padding: '16px 20px',
+              fontSize: '1.02rem',
+              width: '100%',
+              background: 'linear-gradient(135deg, #087e8b 0%, #05515a 100%)',
+              border: '1.5px solid rgba(34, 211, 238, 0.45)',
+              borderRadius: 16,
+              color: '#FFFFFF',
+              fontWeight: 800,
+              boxShadow: '0 6px 18px rgba(8, 126, 139, 0.5), 0 3px 0 #03393f',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              cursor: 'pointer'
+            }}
           >
             <GoogleIcon />
             <span>{isGoogleLoading ? 'Đang kết nối Google...' : 'Đăng nhập bằng tài khoản Google'}</span>
           </button>
 
-          <div style={{ marginTop: 24, fontSize: '0.72rem', color: '#94A3B8', textAlign: 'center' }}>
+          <div style={{ marginTop: 24, fontSize: '0.72rem', color: '#64748B', textAlign: 'center' }}>
             Dio Talk Maritime English © 2026 • Chuẩn IMO STCW
           </div>
         </div>
@@ -2521,19 +2643,20 @@ export default function App() {
         {activeMode === 'speaking' && (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, flex: 1 }}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'white', borderRadius: 20, marginBottom: 14, boxShadow: 'var(--shadow-card)' }}>
+            <div className="speaking-header-bar">
               <button
                 onClick={handleExitActiveMode}
-                style={{ background: '#F1F5F9', border: 'none', borderRadius: 12, padding: 8, cursor: 'pointer' }}
+                className="speaking-back-btn"
+                title="Quay lại"
               >
-                <ArrowLeft size={18} color="#475569" />
+                <ArrowLeft size={18} />
               </button>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h4 style={{ fontSize: '0.92rem', fontWeight: 800 }}>{activeSpeakingOfficer?.title || currentCourse.title}</h4>
                   <button
                     onClick={() => setShowModelModal(true)}
-                    style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1D4ED8', fontSize: '0.7rem', fontWeight: 700, borderRadius: 8, padding: '2px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                    className="speaking-model-pill"
                     title="Bấm để đổi mô hình AI"
                   >
                     <Bot size={12} />
@@ -2551,16 +2674,7 @@ export default function App() {
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, paddingBottom: 10 }}>
               {speakingMessages.map((m, idx) => (
                 <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{
-                    maxWidth: '85%',
-                    padding: '12px 16px',
-                    borderRadius: 20,
-                    background: m.role === 'user' ? '#2F70E8' : 'white',
-                    color: m.role === 'user' ? 'white' : '#1E293B',
-                    boxShadow: 'var(--shadow-card)',
-                    fontSize: '0.9rem',
-                    lineHeight: 1.45
-                  }}>
+                  <div className={`speaking-msg-bubble ${m.role === 'user' ? 'user' : 'assistant'}`}>
                     {m.text}
                     {m.role === 'assistant' && (
                       <button onClick={() => speakText(m.text)} style={{ background: 'none', border: 'none', color: '#2F70E8', cursor: 'pointer', marginLeft: 8 }} title="Nghe lại">
@@ -2580,7 +2694,7 @@ export default function App() {
 
                   {/* Feedback Box */}
                   {m.feedback && (
-                    <div style={{ maxWidth: '85%', marginTop: 6, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '8px 12px', fontSize: '0.78rem', color: '#15803D' }}>
+                    <div style={{ maxWidth: '85%', marginTop: 6, background: 'rgba(22, 163, 74, 0.12)', border: '1px solid rgba(34, 197, 94, 0.3)', borderRadius: 12, padding: '8px 12px', fontSize: '0.78rem', color: '#15803D' }}>
                       <strong>💡 Chấm điểm phản xạ:</strong> {m.feedback}
                     </div>
                   )}
@@ -2620,7 +2734,7 @@ export default function App() {
 
               <div style={{ display: 'flex', gap: 8, width: '100%' }}>
                 <input
-                  style={{ flex: 1, background: 'white', border: '1px solid #E2E8F0', padding: '12px 16px', borderRadius: 16, outline: 'none', fontSize: '0.9rem' }}
+                  className="speaking-text-input"
                   placeholder="Hoặc gõ câu nói của bạn..."
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
@@ -2743,21 +2857,21 @@ export default function App() {
               /* Quiz Finished Summary */
               <div className="quiz-card" style={{ padding: '32px 20px', textAlign: 'center' }}>
                 <Award size={64} color="#EA580C" style={{ margin: '0 auto 14px auto' }} />
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1E293B', marginBottom: 6 }}>
+                <h3 className="quiz-summary-title">
                   HOÀN THÀNH BLITZ QUIZ!
                 </h3>
-                <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: 20 }}>
+                <p className="quiz-summary-sub">
                   Bạn đã trả lời đúng {quizScore} / {currentCourse.quizzes.length} câu phản xạ.
                 </p>
 
                 <div style={{ display: 'flex', gap: 14, width: '100%', marginBottom: 24 }}>
-                  <div style={{ flex: 1, background: '#EFF6FF', borderRadius: 18, padding: 14 }}>
-                    <div style={{ fontSize: '0.75rem', color: '#2563EB', fontWeight: 700 }}>ĐIỂM KINH NGHIỆM</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1E40AF', marginTop: 2 }}>+{quizScore * 15} XP</div>
+                  <div className="quiz-stat-card xp">
+                    <div className="quiz-stat-card-label">ĐIỂM KINH NGHIỆM</div>
+                    <div className="quiz-stat-card-val">+{quizScore * 15} XP</div>
                   </div>
-                  <div style={{ flex: 1, background: '#FFF7ED', borderRadius: 18, padding: 14 }}>
-                    <div style={{ fontSize: '0.75rem', color: '#EA580C', fontWeight: 700 }}>CHUỖI NGÀY</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#C2410C', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <div className="quiz-stat-card streak">
+                    <div className="quiz-stat-card-label">CHUỖI NGÀY</div>
+                    <div className="quiz-stat-card-val" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <span>+1 Ngày</span>
                       <Sticker3D name="flame" size={20} />
                     </div>
@@ -2784,10 +2898,10 @@ export default function App() {
                 onClick={handleExitActiveMode}
                 title="Đóng bài học"
               >
-                <X size={26} color="#0F172A" strokeWidth={2.5} />
+                <X size={26} strokeWidth={2.5} />
               </button>
 
-              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
+              <div className="vocab-study-goal-title">
                 Mục tiêu: {completedToday} / 25
               </div>
 
@@ -2796,7 +2910,7 @@ export default function App() {
                 onClick={() => { setActiveMode('none'); setActiveTab('profile'); }}
                 title="Cài đặt"
               >
-                <SettingsIcon size={22} color="#0F172A" />
+                <SettingsIcon size={22} />
               </button>
             </div>
 
@@ -2858,7 +2972,13 @@ export default function App() {
                   <div>
                     <div
                       className="flashcard-scene-3d"
-                      onClick={() => setIsCardFlipped(!isCardFlipped)}
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') || target.closest('.flashcard-3d-audio-btn')) {
+                          return;
+                        }
+                        setIsCardFlipped(!isCardFlipped);
+                      }}
                     >
                       <div className={`flashcard-card-3d ${isCardFlipped ? 'flipped' : ''}`}>
                         {/* FRONT FACE (ENGLISH TERM & CONTEXT) */}
@@ -2866,7 +2986,7 @@ export default function App() {
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#2563EB', background: '#EFF6FF', padding: '5px 12px', borderRadius: 10, letterSpacing: '0.5px', border: '1px solid #BFDBFE' }}>
+                                <span className="flashcard-front-tag">
                                   MẶT TRƯỚC • THUẬT NGỮ HÀNG HẢI
                                 </span>
                                 {(() => {
@@ -2878,45 +2998,67 @@ export default function App() {
                                   const badgeBg = ret >= 80 ? '#F0FDF4' : ret >= 50 ? '#FFFBEB' : '#FEF2F2';
                                   return (
                                     <span
+                                      className="flashcard-retention-pill"
                                       title={`Độ bền trí nhớ Ebbinghaus: ${ret}%. Khoảng cách ôn tiếp theo: ${rec?.intervalDays || 1} ngày`}
-                                      style={{ fontSize: '0.72rem', fontWeight: 800, color: badgeColor, background: badgeBg, padding: '5px 8px', borderRadius: 10, border: `1px solid ${badgeColor}33`, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                      style={{ color: badgeColor, background: badgeBg, border: `1px solid ${badgeColor}33` }}
                                     >
                                       🧠 {ret}% trí nhớ
                                     </span>
                                   );
                                 })()}
                               </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const t = currentCourse.terms[vocabIndex];
-                                  if (t) speakText(t.word);
-                                }}
-                                title="Nghe phát âm từ"
-                                className="flashcard-3d-audio-btn"
-                              >
-                                <Volume2 size={20} color="#2563EB" />
-                              </button>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const t = currentCourse.terms[vocabIndex];
+                                    if (t) speakText(t.word);
+                                  }}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title="Nghe phát âm chuẩn (0.82x)"
+                                  className="flashcard-3d-audio-btn"
+                                >
+                                  <Volume2 size={20} color="#2563EB" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const t = currentCourse.terms[vocabIndex];
+                                    if (t) speakText(t.word, undefined, false, 0.60);
+                                  }}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title="Đọc chậm 0.60x (Nghe rõ từng âm tiết)"
+                                  className="flashcard-3d-audio-btn slow"
+                                >
+                                  <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>🐢</span>
+                                </button>
+                              </div>
                             </div>
 
-                            <div style={{ fontSize: '2.1rem', fontWeight: 900, color: '#0F172A', marginBottom: 4, letterSpacing: '-0.5px' }}>
+                            <div className="flashcard-word-title">
                               {currentCourse.terms[vocabIndex]?.word}
                             </div>
-                            <div style={{ fontSize: '1.05rem', color: '#64748B', fontWeight: 600, marginBottom: 16 }}>
+                            <div className="flashcard-phonetic-sub">
                               {currentCourse.terms[vocabIndex]?.phonetic}
                             </div>
 
-                            <div style={{ fontSize: '0.94rem', color: '#334155', lineHeight: 1.55, background: '#F8FAFC', padding: '14px 16px', borderRadius: 16, border: '1.5px solid #E2E8F0', marginBottom: 12 }}>
-                              <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 800, marginBottom: 5, letterSpacing: '0.4px' }}>CÂU THỰC HÀNH BUỒNG TÀU:</div>
+                            <div className="flashcard-sentence-box-3d">
+                              <div className="flashcard-sentence-label">CÂU THỰC HÀNH BUỒNG TÀU:</div>
                               "{currentCourse.terms[vocabIndex]?.sentenceBefore}{' '}
-                              <span style={{ color: '#2563EB', fontWeight: 900, textDecoration: 'underline' }}>
+                              <span className="flashcard-sentence-target">
                                 {currentCourse.terms[vocabIndex]?.word}
                               </span>{' '}
                               {currentCourse.terms[vocabIndex]?.sentenceAfter}"
                             </div>
 
                             {currentCourse.terms[vocabIndex]?.hint && (
-                              <div style={{ fontSize: '0.82rem', color: '#0284C7', background: '#F0F9FF', padding: '6px 14px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 6, border: '1px solid #BAE6FD' }}>
+                              <div className="flashcard-hint-box-3d">
                                 💡 Ngữ cảnh: {currentCourse.terms[vocabIndex]?.hint}
                               </div>
                             )}
@@ -2931,32 +3073,52 @@ export default function App() {
                         <div className="flashcard-face-3d back">
                           <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                              <span style={{ fontSize: '0.74rem', fontWeight: 800, color: '#059669', background: '#ECFDF5', padding: '5px 12px', borderRadius: 10, letterSpacing: '0.5px', border: '1px solid #A7F3D0' }}>
+                              <span className="flashcard-back-tag">
                                 MẶT SAU • GIẢI NGHĨA TIẾNG VIỆT
                               </span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const t = currentCourse.terms[vocabIndex];
-                                  if (t) speakText(`${t.word}. ${t.sentenceBefore} ${t.word} ${t.sentenceAfter}`);
-                                }}
-                                title="Nghe toàn bộ câu"
-                                className="flashcard-3d-audio-btn"
-                                style={{ background: '#E0F2FE', borderColor: '#7DD3FC' }}
-                              >
-                                <Volume2 size={20} color="#0284C7" />
-                              </button>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const t = currentCourse.terms[vocabIndex];
+                                    if (t) speakText(`${t.word}. ${t.sentenceBefore} ${t.word} ${t.sentenceAfter}`);
+                                  }}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title="Nghe toàn bộ câu (Chuẩn 0.82x)"
+                                  className="flashcard-3d-audio-btn"
+                                >
+                                  <Volume2 size={20} color="#0284C7" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    const t = currentCourse.terms[vocabIndex];
+                                    if (t) speakText(`${t.word}. ${t.sentenceBefore} ${t.word} ${t.sentenceAfter}`, undefined, false, 0.60);
+                                  }}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title="Nghe chậm toàn bộ câu (0.60x)"
+                                  className="flashcard-3d-audio-btn slow"
+                                >
+                                  <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>🐢</span>
+                                </button>
+                              </div>
                             </div>
 
-                            <div style={{ fontSize: '1.9rem', fontWeight: 900, color: '#0C4A6E', marginBottom: 6 }}>
+                            <div className="flashcard-meaning-title">
                               {currentCourse.terms[vocabIndex]?.meaning}
                             </div>
-                            <div style={{ fontSize: '0.98rem', color: '#0284C7', fontWeight: 700, marginBottom: 12 }}>
+                            <div className="flashcard-phonetic-back">
                               {currentCourse.terms[vocabIndex]?.word} {currentCourse.terms[vocabIndex]?.phonetic}
                             </div>
 
-                            <div style={{ fontSize: '0.9rem', color: '#1E293B', lineHeight: 1.5, background: '#FFFFFF', padding: '12px 14px', borderRadius: 14, border: '1.5px solid #BAE6FD', marginBottom: 12 }}>
-                              <div style={{ fontSize: '0.72rem', color: '#0284C7', fontWeight: 800, marginBottom: 4 }}>BẢN DỊCH CHUẨN TÀU BIỂN:</div>
+                            <div className="flashcard-vi-sentence-box-3d">
+                              <div className="flashcard-sentence-label">BẢN DỊCH CHUẨN TÀU BIỂN:</div>
                               {currentCourse.terms[vocabIndex]?.vietnameseSentence}
                             </div>
 
@@ -2979,9 +3141,12 @@ export default function App() {
                     {/* 3D Flashcard Flip Actions */}
                     <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                       <button
+                        type="button"
                         className="study-action-btn-3d secondary"
                         style={{ flex: 1 }}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
                           const t = currentCourse.terms[vocabIndex];
                           if (t) speakText(t.word);
                         }}
@@ -2990,12 +3155,15 @@ export default function App() {
                         <span>Phát âm</span>
                       </button>
                       <button
+                        type="button"
                         className="study-action-btn-3d secondary"
                         style={{ padding: '0 16px', background: isSlowAudio ? '#FEF3C7' : '#F8FAFC', borderColor: isSlowAudio ? '#F59E0B' : '#E2E8F0' }}
-                        title="Đọc chậm 0.68x (Nghe rõ từng âm tiết)"
-                        onClick={() => {
+                        title="Đọc chậm 0.60x (Nghe rõ từng âm tiết)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
                           const t = currentCourse.terms[vocabIndex];
-                          if (t) speakText(t.word, undefined, false, 0.68);
+                          if (t) speakText(t.word, undefined, false, 0.60);
                         }}
                       >
                         <span style={{ fontSize: '1.25rem' }}>🐢</span>
@@ -3030,9 +3198,9 @@ export default function App() {
                       {currentCourse.terms[vocabIndex]?.sentenceAfter}"
                     </div>
 
-                    <div style={{ fontSize: '0.85rem', color: '#334155', marginBottom: 12, background: '#F1F5F9', padding: '10px 12px', borderRadius: 10 }}>
+                    <div className="flashcard-recall-hint-box">
                       <div><strong>💡 Nghĩa tiếng Việt:</strong> {currentCourse.terms[vocabIndex]?.meaning}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 4 }}>
+                      <div className="flashcard-recall-hint-sub">
                         Gợi ý: Bắt đầu bằng "<strong>{currentCourse.terms[vocabIndex]?.word?.charAt(0).toUpperCase()}</strong>..." ({currentCourse.terms[vocabIndex]?.word?.length} ký tự)
                       </div>
                     </div>
@@ -3161,7 +3329,7 @@ export default function App() {
                   </div>
 
                   {showHint && (
-                    <div style={{ marginTop: 14, fontSize: '0.85rem', color: '#0284C7', background: '#F0F9FF', padding: '6px 12px', borderRadius: 8, display: 'inline-block' }}>
+                    <div className="blank-hint-pill">
                       💡 Gợi ý: {currentCourse.terms[vocabIndex]?.hint || currentCourse.terms[vocabIndex]?.word}
                     </div>
                   )}
@@ -3177,8 +3345,8 @@ export default function App() {
                     <span className="blank-vietnamese-keyword">
                       {currentCourse.terms[vocabIndex]?.meaning}
                     </span>
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                      {isVietnameseOpen ? <ChevronUp size={20} color="#1E293B" /> : <ChevronDown size={20} color="#1E293B" />}
+                    <button className="blank-translation-chevron-btn" aria-label="Đóng mở nghĩa">
+                      {isVietnameseOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                     </button>
                   </div>
 
@@ -3196,7 +3364,7 @@ export default function App() {
                     onClick={toggleVocabSpeechRecognition}
                     title="Bấm mic để nói từ cần điền"
                   >
-                    <Mic size={22} color={vocabRecording ? '#DC2626' : '#1E293B'} />
+                    <Mic size={22} color={vocabRecording ? '#DC2626' : undefined} />
                   </button>
 
                   {vocabStatus === 'correct' ? (
@@ -3275,19 +3443,19 @@ export default function App() {
                 }}
                 title="Thoát phiên học"
               >
-                <X size={26} color="#0F172A" strokeWidth={2.5} />
+                <X size={26} strokeWidth={2.5} />
               </button>
 
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 800, color: '#0F172A' }}>
+                <div className="daily-session-title">
                   Giao Thức Lặp Lại 25 Câu • Ngày {dailySession.day}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>
+                <div className="daily-session-sub">
                   {dailySession.newTermsCount} từ bài này • {dailySession.previewTermsCount || 0} từ bài tới • {dailySession.reviewTermsCount} từ ôn tập
                 </div>
               </div>
 
-              <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EFF6FF', borderRadius: '50%', color: '#2563EB', fontWeight: 800, fontSize: '0.85rem' }}>
+              <div className="daily-session-score-pill">
                 {dailyScore}
               </div>
             </div>
@@ -3339,14 +3507,14 @@ export default function App() {
                 </div>
 
                 {/* Question Prompt Card */}
-                <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: 16, padding: '16px 18px', marginBottom: 16 }}>
-                  <div style={{ fontSize: '0.82rem', color: '#2563EB', fontWeight: 700, marginBottom: 4 }}>
+                <div className="daily-prompt-card">
+                  <div className="daily-prompt-label">
                     {dailySession.questions[dailyQIdx].prompt}
                   </div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
+                  <div className="daily-prompt-meaning">
                     "{dailySession.questions[dailyQIdx].meaningVi}"
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#64748B', lineHeight: 1.4 }}>
+                  <div className="daily-prompt-context">
                     {dailySession.questions[dailyQIdx].vietnameseSentence}
                   </div>
                 </div>
@@ -3407,12 +3575,12 @@ export default function App() {
 
                 {/* Feedback / Explanation Box with AI Evaluation */}
                 {dailyIsChecked && (
-                  <div style={{ background: '#EFF6FF', border: '1.5px solid #BFDBFE', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
+                  <div className="daily-feedback-box">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                       <span style={{ fontSize: '1.1rem' }}>
                         {((dailySession.questions[dailyQIdx].questionType === 'cloze' && (dailyAiResult ? dailyAiResult.isCorrect : dailyInput.trim().toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase())) || dailySelectedOpt?.toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase()) ? '✅' : '❌'}
                       </span>
-                      <strong style={{ fontSize: '0.95rem', color: '#1E3A8A' }}>
+                      <strong className="daily-feedback-correct-title">
                         Đáp án chuẩn: {dailySession.questions[dailyQIdx].targetWord} {dailySession.questions[dailyQIdx].phonetic}
                       </strong>
                     </div>
@@ -3423,32 +3591,32 @@ export default function App() {
                       </div>
                     )}
 
-                    <div style={{ fontSize: '0.85rem', color: '#1E40AF', lineHeight: 1.4 }}>
+                    <div className="daily-feedback-explanation">
                       {dailySession.questions[dailyQIdx].explanation}
                     </div>
 
                     {((dailySession.questions[dailyQIdx].questionType === 'cloze' && (dailyAiResult ? dailyAiResult.isCorrect : dailyInput.trim().toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase())) || dailySelectedOpt?.toLowerCase() === dailySession.questions[dailyQIdx].correctAnswer.toLowerCase()) && (
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #BFDBFE' }}>
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(191, 219, 254, 0.4)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                           <button
                             type="button"
                             onClick={() => speakText(`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim())}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', padding: 0, color: '#0369A1', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                            className="daily-audio-btn-standard"
                           >
                             <Volume2 size={16} /> Nghe chuẩn
                           </button>
                           <button
                             type="button"
                             onClick={() => speakText(`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim(), undefined, false, 0.68)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'transparent', padding: 0, color: '#D97706', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
+                            className="daily-audio-btn-slow"
                           >
                             <span>🐢</span> Nghe chậm
                           </button>
                         </div>
-                        <div style={{ marginTop: 8, color: '#075985', fontSize: '0.96rem', fontWeight: 700, lineHeight: 1.55 }}>
+                        <div className="daily-feedback-sentence-en">
                           {`${dailySession.questions[dailyQIdx].sentenceBefore} ${dailySession.questions[dailyQIdx].targetWord} ${dailySession.questions[dailyQIdx].sentenceAfter}`.replace(/\s+/g, ' ').trim()}
                         </div>
-                        <div style={{ marginTop: 4, color: '#475569', fontSize: '0.86rem', lineHeight: 1.45 }}>
+                        <div className="daily-feedback-sentence-vi">
                           {dailySession.questions[dailyQIdx].vietnameseSentence || dailySession.questions[dailyQIdx].meaningVi}
                         </div>
                       </div>
@@ -3491,21 +3659,21 @@ export default function App() {
                 <div style={{ marginBottom: 14 }}>
                   <Sticker3D name="medal" size={68} />
                 </div>
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
+                <h3 className="daily-finish-title">
                   Hoàn Thành Giao Thức 25 Câu!
                 </h3>
-                <p style={{ fontSize: '0.9rem', color: '#64748B', maxWidth: 320, lineHeight: 1.5, marginBottom: 20 }}>
+                <p className="daily-finish-sub">
                   Bạn đã xuất sắc làm chủ 5 từ mới và ôn tập củng cố các từ khó đã học qua 25 câu hỏi ngắt quãng đa dạng.
                 </p>
 
                 <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 24 }}>
-                  <div style={{ flex: 1, background: '#DCFCE7', borderRadius: 16, padding: '14px 10px' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#16A34A', fontWeight: 800 }}>ĐÚNG CHÍNH XÁC</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#15803D', marginTop: 2 }}>{dailyScore} / 25</div>
+                  <div className="daily-stat-card success">
+                    <div className="daily-stat-card-label">ĐÚNG CHÍNH XÁC</div>
+                    <div className="daily-stat-card-val">{dailyScore} / 25</div>
                   </div>
-                  <div style={{ flex: 1, background: '#EFF6FF', borderRadius: 16, padding: '14px 10px' }}>
-                    <div style={{ fontSize: '0.72rem', color: '#2563EB', fontWeight: 800 }}>THƯỞNG KINH NGHIỆM</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1D4ED8', marginTop: 2 }}>+{dailyScore * 15} XP</div>
+                  <div className="daily-stat-card xp">
+                    <div className="daily-stat-card-label">THƯỞNG KINH NGHIỆM</div>
+                    <div className="daily-stat-card-val">+{dailyScore * 15} XP</div>
                   </div>
                 </div>
 
@@ -3543,10 +3711,10 @@ export default function App() {
                     }
                   });
                 }}
-                style={{ background: '#F1F5F9', border: 'none', borderRadius: 12, padding: 8, cursor: 'pointer' }}
+                className="marlins-back-btn"
                 title="Thoát bài thi"
               >
-                <ArrowLeft size={18} color="#475569" />
+                <ArrowLeft size={18} />
               </button>
 
               <div className="marlins-timer-badge">
@@ -3557,7 +3725,7 @@ export default function App() {
                 </span>
               </div>
 
-              <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1E293B' }}>
+              <span className="marlins-q-index">
                 {marlinsIndex + 1} / {MARLINS_EXAM_DATA.length}
               </span>
             </div>
@@ -3573,7 +3741,7 @@ export default function App() {
                         <span style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600 }}>{q.maritimeContext}</span>
                       </div>
 
-                      <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A', lineHeight: 1.5, marginBottom: 12 }}>
+                      <h3 className="marlins-prompt-title">
                         {q.prompt}
                       </h3>
 
@@ -3621,7 +3789,7 @@ export default function App() {
                           <div style={{ fontSize: '0.85rem', fontWeight: 800, color: marlinsSelectedOption === q.correctIndex ? '#16A34A' : '#DC2626', marginBottom: 4 }}>
                             {marlinsSelectedOption === q.correctIndex ? '✅ Chính xác!' : '❌ Chưa chính xác!'}
                           </div>
-                          <p style={{ fontSize: '0.82rem', color: '#334155', margin: 0, lineHeight: 1.45 }}>
+                          <p className="marlins-explanation-text">
                             {q.explanation}
                           </p>
                         </div>
@@ -3672,18 +3840,18 @@ export default function App() {
                   <div style={{ marginBottom: 12 }}>
                     <Sticker3D name={(marlinsScore / MARLINS_EXAM_DATA.length) >= 0.7 ? 'trophy' : 'anchor'} size={68} />
                   </div>
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: '10px 0 6px 0', color: '#0F172A' }}>
+                  <h2 className="marlins-cert-title">
                     Kết Quả Thi Thử Marlins
                   </h2>
-                  <p style={{ fontSize: '0.85rem', color: '#64748B', marginBottom: 16 }}>
+                  <p className="marlins-cert-sub">
                     Kỳ thi đánh giá tiếng Anh Hàng hải chuẩn quốc tế STCW 78/2010
                   </p>
 
-                  <div style={{ background: '#F8FAFC', padding: 16, borderRadius: 16, margin: '14px 0', border: '1px solid #E2E8F0' }}>
+                  <div className="marlins-score-card">
                     <div style={{ fontSize: '2.4rem', fontWeight: 900, color: (marlinsScore / MARLINS_EXAM_DATA.length) >= 0.7 ? '#16A34A' : '#EA580C' }}>
                       {Math.round((marlinsScore / MARLINS_EXAM_DATA.length) * 100)}%
                     </div>
-                    <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#475569' }}>
+                    <div className="marlins-score-subtitle">
                       Đúng {marlinsScore} / {MARLINS_EXAM_DATA.length} câu hỏi
                     </div>
                     <div style={{ fontSize: '0.78rem', color: (marlinsScore / MARLINS_EXAM_DATA.length) >= 0.7 ? '#16A34A' : '#DC2626', fontWeight: 800, marginTop: 4 }}>
@@ -3911,7 +4079,7 @@ export default function App() {
 
             <div style={{ padding: '16px 14px 40px 14px' }}>
               {/* Emergency Alert Banner */}
-              <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+              <div className="emergency-alert-banner">
                 <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#991B1B', textTransform: 'uppercase' }}>
                   Tín hiệu báo động chung (General Alarm)
                 </div>
@@ -3935,7 +4103,7 @@ export default function App() {
               </div>
 
               {/* Step by step SOLAS Action Checklist */}
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <h4 className="emergency-solas-title">
                 <Sticker3D name="psc-clipboard" size={18} />
                 <span>Quy trình thao tác khẩn cấp (SOLAS Mandatory Steps):</span>
               </h4>
@@ -3953,7 +4121,7 @@ export default function App() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                          <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0F172A', flex: 1, minWidth: 0, lineHeight: 1.4 }}>
+                          <div className="emergency-command-text">
                             {st.radioCommandEn}
                           </div>
                           <button
@@ -4020,65 +4188,81 @@ export default function App() {
             {activeTab === 'home' && (
               <div>
                 {/* DIO TALK: USER STATS & GAMIFICATION HEADER */}
+                {/* DIO TALK: MARITIME COCKPIT COMMAND BAR (UI-UX-PRO-MAX) */}
                 <div className="dio-top-bar">
-                  <div className="dio-user-badge" onClick={() => setShowAuthModal(true)} title="Bấm để chỉnh sửa hồ sơ thuyền viên">
-                    <div className="dio-avatar-circle">
-                      {userProfile.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="dio-user-info">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="dio-user-name">{userProfile.name}</span>
-                        <span style={{ fontSize: '0.65rem', background: '#DBEAFE', color: '#1E40AF', padding: '1px 6px', borderRadius: 6, fontWeight: 800 }}>MC1</span>
+                  {/* TIER 1: CREW PROFILE & BRIDGE NIGHT CONTROLS */}
+                  <div className="dio-top-bar-header">
+                    <div
+                      className="dio-user-badge"
+                      onClick={() => setShowAuthModal(true)}
+                      title="Bấm để chỉnh sửa hồ sơ thuyền viên"
+                    >
+                      <div className="dio-avatar-circle">
+                        {userProfile.name.charAt(0).toUpperCase()}
                       </div>
-                      <span className="dio-user-rank-pill">{userProfile.rank}</span>
+                      <div className="dio-user-info">
+                        <div className="dio-user-name-row">
+                          <span className="dio-user-name">
+                            {userProfile.name}
+                          </span>
+                          <span className="dio-rank-mc1-badge">
+                            MC1
+                          </span>
+                        </div>
+                        <div className="dio-user-rank-row">
+                          <span className="dio-user-rank-pill">
+                            ⚓ {userProfile.rank}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="dio-top-bar-actions">
+                      <button
+                        onClick={toggleNightMode}
+                        className="dio-theme-toggle-btn"
+                        title={nightMode ? 'Chuyển sang Chế độ Ban ngày' : 'Bật Chế độ Buồng lái Đêm (Night Bridge)'}
+                        aria-label="Toggle Night Bridge Mode"
+                      >
+                        {nightMode ? <Sun size={17} /> : <Moon size={17} />}
+                      </button>
                     </div>
                   </div>
 
+                  {/* TIER 2: GAMIFIED VITALITY HUD (STREAK, ENERGY, XP) */}
                   <div className="dio-stats-cluster">
                     <div
                       className={`dio-stat-pill streak ${completedToday > 0 ? 'lit' : 'unlit'}`}
-                      title={completedToday > 0 ? `Chuỗi ${userProfile.streakDays} ngày • Đã giữ lửa hôm nay (${completedToday}/25 câu)!` : `Chuỗi ${userProfile.streakDays} ngày • Chưa học hôm nay (Lửa đang le lói)`}
+                      title={completedToday > 0 ? `Chuỗi ${userProfile.streakDays} ngày • Đã giữ lửa hôm nay (${completedToday}/25 câu)!` : `Chuỗi ${userProfile.streakDays} ngày • Chưa học hôm nay`}
                       onClick={() => setShowStreakModal(true)}
-                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                      style={{ cursor: 'pointer' }}
                     >
                       <div className="streak-pill-flame">
-                        <Sticker3D name="flame" size={20} />
+                        <Sticker3D name="flame" size={18} />
                       </div>
-                      <span>{userProfile.streakDays}</span>
+                      <span className="stat-value">{userProfile.streakDays}</span>
+                      <span className="stat-unit">ngày</span>
                     </div>
-                    <div className="dio-stat-pill hearts" title="Trái tim năng lượng" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Sticker3D name="heart" size={20} />
-                      <span>{userProfile.hearts}</span>
+
+                    <div
+                      className="dio-stat-pill hearts"
+                      title="Trái tim năng lượng học tập"
+                    >
+                      <Sticker3D name="heart" size={18} />
+                      <span className="stat-value">{userProfile.hearts}</span>
+                      <span className="stat-unit">tim</span>
                     </div>
+
                     <div
                       className="dio-stat-pill xp"
                       title="Kinh nghiệm & Đá quý tích lũy (Bấm để đổi Skin cho Pet Dio)"
                       onClick={() => setShowPetWardrobe(true)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <Sticker3D name="gem" size={20} />
-                      <span>{userProfile.xp}</span>
+                      <Sticker3D name="gem" size={18} />
+                      <span className="stat-value">{userProfile.xp}</span>
+                      <span className="stat-unit">XP</span>
                     </div>
-
-                    {/* NIGHT BRIDGE MODE TOGGLE BUTTON */}
-                    <button
-                      onClick={toggleNightMode}
-                      className="dio-stat-pill theme-toggle"
-                      style={{
-                        background: nightMode ? '#1E293B' : '#EFF6FF',
-                        border: nightMode ? '1px solid #334155' : '1px solid #BFDBFE',
-                        color: nightMode ? '#FBBF24' : '#2563EB',
-                        cursor: 'pointer',
-                        padding: '6px 8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 14
-                      }}
-                      title={nightMode ? 'Chuyển sang Chế độ Ban ngày' : 'Bật Chế độ Ban đêm (Night Bridge Mode)'}
-                    >
-                      {nightMode ? <Sun size={17} /> : <Moon size={17} />}
-                    </button>
                   </div>
                 </div>
 
@@ -4111,29 +4295,35 @@ export default function App() {
 
                 {/* DAILY GOAL PROGRESS WIDGET (PROGRESSIVE 25 QUESTIONS) */}
                 <div
-                  style={{ background: '#FFFFFF', borderRadius: 16, padding: '14px 16px', margin: '14px 0', border: '1.5px solid #E2E8F0', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', cursor: 'pointer' }}
+                  className="dio-daily-goal-card"
+                  style={{
+                    borderRadius: 20,
+                    padding: '14px 16px',
+                    margin: '14px 0',
+                    cursor: 'pointer'
+                  }}
                   onClick={() => setShowStreakModal(true)}
                   title="Nhấn để xem thang bậc Streak 25 câu"
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Sticker3D name="target" size={22} />
-                      <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0F172A' }}>Mục tiêu hôm nay</span>
+                      <span className="dio-card-title" style={{ fontSize: '0.88rem', fontWeight: 800 }}>Mục tiêu hôm nay</span>
                       {completedToday >= 25 ? (
-                        <span style={{ fontSize: '0.68rem', background: '#DCFCE7', color: '#16A34A', padding: '2px 8px', borderRadius: 99, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ fontSize: '0.68rem', background: 'rgba(34, 197, 94, 0.2)', color: '#4ADE80', border: '1px solid rgba(34, 197, 94, 0.35)', padding: '2px 8px', borderRadius: 99, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                           <Sticker3D name="flame" size={14} /> ĐÃ BÙNG NỔ
                         </span>
                       ) : (
-                        <span style={{ fontSize: '0.68rem', background: '#FEF3C7', color: '#B45309', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
+                        <span style={{ fontSize: '0.68rem', background: 'rgba(245, 158, 11, 0.18)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
                           {completedToday >= 20 ? 'Mức 4' : completedToday >= 15 ? 'Mức 3' : completedToday >= 10 ? 'Mức 2' : completedToday >= 5 ? 'Mức 1' : 'Khởi đầu'}
                         </span>
                       )}
                     </div>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: completedToday >= 25 ? '#16A34A' : '#2563EB' }}>
+                    <span className="dio-card-count" style={{ fontSize: '0.78rem', fontWeight: 800 }}>
                       {completedToday} / 25 câu
                     </span>
                   </div>
-                  <div className="streak-prog-bar" style={{ height: 9, borderRadius: 6, background: '#F1F5F9' }}>
+                  <div className="streak-prog-bar" style={{ height: 9, borderRadius: 6 }}>
                     <div
                       className="streak-prog-fill"
                       style={{
@@ -4141,15 +4331,16 @@ export default function App() {
                         background: completedToday >= 25
                           ? 'linear-gradient(90deg, #EA580C, #F59E0B)'
                           : completedToday >= 15
-                            ? 'linear-gradient(90deg, #2563EB, #06B6D4)'
-                            : '#2563EB',
+                            ? 'linear-gradient(90deg, #087e8b, #22d3ee)'
+                            : '#087e8b',
+                        boxShadow: '0 0 10px rgba(34, 211, 238, 0.5)',
                         transition: 'width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
                       }}
                     ></div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.72rem', color: '#64748B' }}>
+                  <div className="dio-card-sub" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.72rem' }}>
                     <span>{completedToday >= 25 ? '🔥 Đã giữ vững Streak ngày!' : `Còn ${Math.max(0, 25 - completedToday)} câu nữa để đạt Streak`}</span>
-                    <span style={{ color: '#2563EB', fontWeight: 700 }}>Chi tiết bậc thang ❯</span>
+                    <span className="dio-card-link" style={{ fontWeight: 700 }}>Chi tiết bậc thang ❯</span>
                   </div>
                 </div>
 
@@ -4158,25 +4349,22 @@ export default function App() {
                   const fluency = getFluencyStatus();
                   return (
                     <div
+                      className="dio-ebbinghaus-card"
                       style={{
-                        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
                         borderRadius: 18,
                         padding: '16px',
-                        margin: '14px 0',
-                        color: 'white',
-                        boxShadow: '0 8px 24px rgba(15, 23, 42, 0.15)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)'
+                        margin: '14px 0'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                             <span style={{ fontSize: '1rem' }}>🧠</span>
-                            <span style={{ fontSize: '0.86rem', fontWeight: 800, letterSpacing: '0.3px', color: '#F8FAFC' }}>
+                            <span className="dio-ebbinghaus-title" style={{ fontSize: '0.86rem', fontWeight: 800, letterSpacing: '0.3px' }}>
                               RADAR TRÍ NHỚ EBBINGHAUS
                             </span>
                           </div>
-                          <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
+                          <div className="dio-ebbinghaus-sub" style={{ fontSize: '0.72rem' }}>
                             Đo lường độ bền trí nhớ dài hạn thời gian thực
                           </div>
                         </div>
@@ -4185,12 +4373,12 @@ export default function App() {
                           <span style={{ fontSize: '1.25rem', fontWeight: 900, color: fluency.averageRetention >= 80 ? '#4ADE80' : fluency.averageRetention >= 60 ? '#FBBF24' : '#F87171' }}>
                             {fluency.averageRetention}%
                           </span>
-                          <div style={{ fontSize: '0.66rem', color: '#CBD5E1', fontWeight: 700 }}>Độ lưu giữ</div>
+                          <div className="dio-ebbinghaus-retention-label" style={{ fontSize: '0.66rem', fontWeight: 700 }}>Độ lưu giữ</div>
                         </div>
                       </div>
 
                       {/* Retention Gauge Bar */}
-                      <div style={{ height: 8, borderRadius: 99, background: 'rgba(255, 255, 255, 0.12)', overflow: 'hidden', marginBottom: 12 }}>
+                      <div className="dio-ebbinghaus-track" style={{ height: 8, borderRadius: 99, overflow: 'hidden', marginBottom: 12 }}>
                         <div
                           style={{
                             height: '100%',
@@ -4208,21 +4396,21 @@ export default function App() {
 
                       {/* 3 Metric Pills */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                        <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '8px 10px', textAlign: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#38BDF8' }}>{fluency.totalLearned}</div>
-                          <div style={{ fontSize: '0.64rem', color: '#94A3B8' }}>Đã nạp</div>
+                        <div className="dio-ebbinghaus-metric-box">
+                          <div className="dio-ebbinghaus-metric-val learned">{fluency.totalLearned}</div>
+                          <div className="dio-ebbinghaus-metric-lbl">Đã nạp</div>
                         </div>
 
-                        <div style={{ background: 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '8px 10px', textAlign: 'center', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                          <div style={{ fontSize: '1rem', fontWeight: 800, color: '#4ADE80' }}>{fluency.masteredCount}</div>
-                          <div style={{ fontSize: '0.64rem', color: '#94A3B8' }}>Thuộc làu</div>
+                        <div className="dio-ebbinghaus-metric-box">
+                          <div className="dio-ebbinghaus-metric-val mastered">{fluency.masteredCount}</div>
+                          <div className="dio-ebbinghaus-metric-lbl">Thuộc làu</div>
                         </div>
 
-                        <div style={{ background: fluency.dueTodayCount > 0 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(255, 255, 255, 0.06)', borderRadius: 12, padding: '8px 10px', textAlign: 'center', border: fluency.dueTodayCount > 0 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)' }}>
-                          <div style={{ fontSize: '1rem', fontWeight: 800, color: fluency.dueTodayCount > 0 ? '#F87171' : '#E2E8F0' }}>
+                        <div className={`dio-ebbinghaus-metric-box ${fluency.dueTodayCount > 0 ? 'urgent' : ''}`}>
+                          <div className={`dio-ebbinghaus-metric-val ${fluency.dueTodayCount > 0 ? 'urgent' : 'normal'}`}>
                             {fluency.dueTodayCount}
                           </div>
-                          <div style={{ fontSize: '0.64rem', color: fluency.dueTodayCount > 0 ? '#FCA5A5' : '#94A3B8', fontWeight: fluency.dueTodayCount > 0 ? 700 : 400 }}>
+                          <div className={`dio-ebbinghaus-metric-lbl ${fluency.dueTodayCount > 0 ? 'urgent' : ''}`}>
                             {fluency.dueTodayCount > 0 ? '⚠️ Cần ôn ngay' : 'Đến hạn hôm nay'}
                           </div>
                         </div>
@@ -4889,28 +5077,32 @@ export default function App() {
                           <>
                             {/* STCW Progressive Milestones Banner */}
                             <div style={{
-                              background: isAllMastered ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)' : 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
-                              border: `1.5px solid ${isAllMastered ? '#10B981' : '#3B82F6'}`,
-                              borderRadius: 16,
+                              background: isAllMastered
+                                ? 'linear-gradient(145deg, rgba(6, 78, 59, 0.5) 0%, rgba(13, 27, 46, 0.9) 100%)'
+                                : 'linear-gradient(145deg, rgba(8, 126, 139, 0.3) 0%, rgba(13, 27, 46, 0.92) 100%)',
+                              border: `1.5px solid ${isAllMastered ? 'rgba(52, 211, 153, 0.45)' : 'rgba(34, 211, 238, 0.35)'}`,
+                              borderRadius: 18,
                               padding: '14px 18px',
                               marginBottom: 20,
-                              boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                              backdropFilter: 'blur(16px)',
+                              WebkitBackdropFilter: 'blur(16px)'
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <Sticker3D name={isAllMastered ? 'crown' : 'medal'} size={24} />
-                                  <strong style={{ fontSize: 13, color: '#1E293B' }}>
+                                  <strong style={{ fontSize: 13, color: '#F8FAFC' }}>
                                     MỤC TIÊU STCW: {nextMilestone.title.toUpperCase()} ({targetVocab} TỪ)
                                   </strong>
                                 </div>
                                 <span style={{
                                   fontSize: 12,
                                   fontWeight: 700,
-                                  color: isAllMastered ? '#059669' : '#2563EB',
-                                  background: '#FFFFFF',
-                                  padding: '2px 10px',
+                                  color: isAllMastered ? '#34D399' : '#22D3EE',
+                                  background: 'rgba(15, 36, 61, 0.85)',
+                                  padding: '3px 12px',
                                   borderRadius: 20,
-                                  border: `1px solid ${isAllMastered ? '#A7F3D0' : '#BFDBFE'}`
+                                  border: `1px solid ${isAllMastered ? 'rgba(52, 211, 153, 0.4)' : 'rgba(34, 211, 238, 0.3)'}`
                                 }}>
                                   {completedDeptTerms} / {targetVocab} Từ ({progressPct}%)
                                 </span>
@@ -4918,7 +5110,7 @@ export default function App() {
                               <div style={{
                                 width: '100%',
                                 height: 8,
-                                background: '#E2E8F0',
+                                background: 'rgba(255, 255, 255, 0.1)',
                                 borderRadius: 99,
                                 overflow: 'hidden',
                                 marginBottom: 8
@@ -4926,7 +5118,9 @@ export default function App() {
                                 <div style={{
                                   width: `${progressPct}%`,
                                   height: '100%',
-                                  background: isAllMastered ? '#10B981' : '#3B82F6',
+                                  background: isAllMastered
+                                    ? 'linear-gradient(90deg, #10B981, #34D399)'
+                                    : 'linear-gradient(90deg, #087E8B, #22D3EE)',
                                   borderRadius: 99,
                                   transition: 'width 0.4s ease'
                                 }} />
@@ -4940,11 +5134,11 @@ export default function App() {
                                     <span key={m.vocab} style={{
                                       fontSize: 11,
                                       fontWeight: 600,
-                                      padding: '3px 10px',
+                                      padding: '4px 10px',
                                       borderRadius: 12,
-                                      background: reached ? '#DCFCE7' : '#F1F5F9',
-                                      color: reached ? '#15803D' : '#64748B',
-                                      border: `1px solid ${reached ? '#86EFAC' : '#CBD5E1'}`,
+                                      background: reached ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                                      color: reached ? '#34D399' : '#94A3B8',
+                                      border: `1px solid ${reached ? 'rgba(52, 211, 153, 0.4)' : 'rgba(255, 255, 255, 0.1)'}`,
                                       display: 'inline-flex',
                                       alignItems: 'center',
                                       gap: 4
@@ -4956,7 +5150,7 @@ export default function App() {
                                 })}
                               </div>
 
-                              <p style={{ margin: 0, fontSize: 11.5, color: '#475569', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <p style={{ margin: 0, fontSize: 11.5, color: '#94A3B8', lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 5 }}>
                                 {isAllMastered && <Sticker3D name="trophy" size={15} />}
                                 <span>
                                   {isAllMastered
@@ -5189,11 +5383,20 @@ export default function App() {
                 {/* SubTab 3: IMO SMCP 8 Mẫu Tiêu Chuẩn */}
                 {learnSubTab === 'smcp' && (
                   <div>
-                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 14, padding: 14, marginBottom: 16 }}>
-                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1E40AF', marginBottom: 4 }}>
+                    <div style={{
+                      background: 'linear-gradient(145deg, rgba(8, 126, 139, 0.25) 0%, rgba(13, 27, 46, 0.9) 100%)',
+                      border: '1px solid rgba(34, 211, 238, 0.3)',
+                      borderRadius: 16,
+                      padding: 14,
+                      marginBottom: 16,
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}>
+                      <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#38BDF8', marginBottom: 4 }}>
                         IMO Standard Marine Communication Phrases
                       </h4>
-                      <p style={{ fontSize: '0.78rem', color: '#3B82F6', lineHeight: 1.4 }}>
+                      <p style={{ fontSize: '0.78rem', color: '#94A3B8', lineHeight: 1.4 }}>
                         8 mẫu thông điệp bắt buộc khi liên lạc qua vô tuyến điện VHF hàng hải để tránh nhầm lẫn tai nạn.
                       </p>
                     </div>
@@ -5393,17 +5596,29 @@ export default function App() {
                       {VHF_SCENARIOS.map(sc => (
                         <div
                           key={sc.id}
-                          style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 14, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                          style={{
+                            background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                            border: '1px solid rgba(34, 211, 238, 0.22)',
+                            borderRadius: 16,
+                            padding: 14,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)'
+                          }}
                           onClick={() => launchVhfScenario(sc)}
                         >
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ background: '#0F172A', color: '#38BDF8', fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: 6 }}>
+                              <span style={{ background: '#0F172A', color: '#22D3EE', border: '1px solid rgba(34, 211, 238, 0.3)', fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: 6 }}>
                                 {sc.channel}
                               </span>
-                              <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0F172A' }}>{sc.title}</h4>
+                              <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#F8FAFC' }}>{sc.title}</h4>
                             </div>
-                            <p style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 4 }}>
+                            <p style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: 4 }}>
                               Đài đối thoại: {sc.otherStationName} • {sc.dialogueSteps.length} lượt đàm thoại
                             </p>
                           </div>
@@ -5429,7 +5644,19 @@ export default function App() {
                       {EMERGENCY_SCENARIOS.map(em => (
                         <div
                           key={em.id}
-                          style={{ background: '#FFFFFF', border: '1px solid #FEE2E2', borderRadius: 14, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                          style={{
+                            background: 'linear-gradient(145deg, rgba(45, 15, 20, 0.85) 0%, rgba(13, 27, 46, 0.92) 100%)',
+                            border: '1px solid rgba(239, 68, 68, 0.35)',
+                            borderRadius: 16,
+                            padding: 14,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)'
+                          }}
                           onClick={() => launchEmergencyScenario(em)}
                         >
                           <div>
@@ -5437,13 +5664,13 @@ export default function App() {
                               <span style={{ background: '#DC2626', color: '#FFF', fontSize: '0.72rem', fontWeight: 800, padding: '2px 6px', borderRadius: 6 }}>
                                 {em.type.toUpperCase()}
                               </span>
-                              <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#991B1B' }}>{em.title}</h4>
+                              <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#FCA5A5' }}>{em.title}</h4>
                             </div>
-                            <p style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 4 }}>
+                            <p style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: 4 }}>
                               {em.steps.length} bước xử lý chuẩn SOLAS & Báo động chung
                             </p>
                           </div>
-                          <button className="study-action-btn" style={{ padding: '8px 14px', fontSize: '0.78rem', borderColor: '#DC2626', color: '#DC2626' }}>
+                          <button className="study-action-btn" style={{ padding: '8px 14px', fontSize: '0.78rem', borderColor: '#EF4444', color: '#EF4444', background: 'rgba(239, 68, 68, 0.12)' }}>
                             Mở Checklist ➔
                           </button>
                         </div>
@@ -5638,15 +5865,20 @@ export default function App() {
                   ].map((p, pIdx) => (
                     <div
                       key={pIdx}
+                      className="dio-roleplay-card"
                       style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: 14,
+                        background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                        border: '1px solid rgba(34, 211, 238, 0.22)',
+                        borderRadius: 16,
                         padding: 14,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
                       }}
                       onClick={() => launchSpeaking(p)}
                     >
@@ -5656,17 +5888,17 @@ export default function App() {
                         </div>
                         <div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0F172A' }}>{p.title}</h4>
-                            <span style={{ fontSize: '0.68rem', fontWeight: 700, background: '#F1F5F9', color: '#475569', padding: '2px 6px', borderRadius: 4 }}>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#F8FAFC' }}>{p.title}</h4>
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, background: 'rgba(34, 211, 238, 0.15)', color: '#22D3EE', border: '1px solid rgba(34, 211, 238, 0.3)', padding: '2px 7px', borderRadius: 6 }}>
                               {p.tag}
                             </span>
                           </div>
-                          <p style={{ fontSize: '0.74rem', color: '#64748B', marginTop: 3 }}>
+                          <p style={{ fontSize: '0.74rem', color: '#94A3B8', marginTop: 3 }}>
                             {p.desc}
                           </p>
                         </div>
                       </div>
-                      <ChevronRight size={18} color="#94A3B8" />
+                      <ChevronRight size={18} color="#22D3EE" />
                     </div>
                   ))}
                 </div>
@@ -5679,11 +5911,11 @@ export default function App() {
             {activeTab === 'profile' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '4px 0 12px 0' }}>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A' }}>Hồ Sơ Thuyền Viên STCW</h3>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#F8FAFC' }}>Hồ Sơ Thuyền Viên STCW</h3>
                   <button
                     className="vocab-reset-btn"
                     onClick={() => setShowAuthModal(true)}
-                    style={{ background: '#EFF6FF', color: '#2563EB', fontWeight: 700, fontSize: '0.75rem', padding: '5px 12px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    style={{ background: 'rgba(34, 211, 238, 0.15)', color: '#22D3EE', border: '1px solid rgba(34, 211, 238, 0.3)', fontWeight: 700, fontSize: '0.75rem', padding: '5px 12px', borderRadius: 10, display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   >
                     <Sticker3D name="pencil" size={14} />
                     <span>Sửa hồ sơ</span>
@@ -5691,60 +5923,78 @@ export default function App() {
                 </div>
 
                 {/* Streamlined Profile & Stats Card */}
-                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '14px 16px', marginBottom: 16, boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}>
+                <div style={{
+                  background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                  border: '1px solid rgba(34, 211, 238, 0.22)',
+                  borderRadius: 18,
+                  padding: '14px 16px',
+                  marginBottom: 16,
+                  boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)'
+                }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div className="dio-avatar-circle" style={{ width: 48, height: 48, fontSize: '1.25rem', flexShrink: 0 }}>
                       {userProfile.name.charAt(0).toUpperCase()}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <h4 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#F8FAFC', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {userProfile.name}
                         </h4>
                         <span className="dio-user-rank-pill" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
                           {userProfile.rank}
                         </span>
                       </div>
-                      <p style={{ fontSize: '0.74rem', color: '#64748B', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <p style={{ fontSize: '0.74rem', color: '#94A3B8', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {userProfile.email}
                       </p>
                     </div>
                   </div>
 
                   {/* Compact 4-col Quick Metric Strip */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid #F1F5F9', textAlign: 'center' }}>
-                    <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '6px 4px' }}>
-                      <div style={{ fontSize: '0.66rem', color: '#64748B', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255, 255, 255, 0.08)', textAlign: 'center' }}>
+                    <div style={{ background: 'rgba(15, 36, 61, 0.65)', borderRadius: 10, padding: '6px 4px', border: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                      <div style={{ fontSize: '0.66rem', color: '#94A3B8', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                         <Sticker3D name="lightning" size={13} /> Luyện
                       </div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0F172A', marginTop: 2 }}>{calculatedMinutes}m</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#F8FAFC', marginTop: 2 }}>{calculatedMinutes}m</div>
                     </div>
-                    <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '6px 4px' }}>
-                      <div style={{ fontSize: '0.66rem', color: '#16A34A', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                    <div style={{ background: 'rgba(34, 197, 94, 0.15)', borderRadius: 10, padding: '6px 4px', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
+                      <div style={{ fontSize: '0.66rem', color: '#4ADE80', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                         <Sticker3D name="target" size={13} /> Chuẩn
                       </div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#15803D', marginTop: 2 }}>{calculatedAccuracy}%</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#4ADE80', marginTop: 2 }}>{calculatedAccuracy}%</div>
                     </div>
-                    <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '6px 4px' }}>
-                      <div style={{ fontSize: '0.66rem', color: '#EA580C', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                    <div style={{ background: 'rgba(234, 88, 12, 0.15)', borderRadius: 10, padding: '6px 4px', border: '1px solid rgba(234, 88, 12, 0.3)' }}>
+                      <div style={{ fontSize: '0.66rem', color: '#FB923C', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                         <Sticker3D name="flame" size={13} /> Streak
                       </div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#C2410C', marginTop: 2 }}>{userProfile.streakDays}d</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#FB923C', marginTop: 2 }}>{userProfile.streakDays}d</div>
                     </div>
-                    <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '6px 4px' }}>
-                      <div style={{ fontSize: '0.66rem', color: '#2563EB', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                    <div style={{ background: 'rgba(34, 211, 238, 0.15)', borderRadius: 10, padding: '6px 4px', border: '1px solid rgba(34, 211, 238, 0.3)' }}>
+                      <div style={{ fontSize: '0.66rem', color: '#38BDF8', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
                         <Sticker3D name="gem" size={13} /> Điểm XP
                       </div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1D4ED8', marginTop: 2 }}>{userProfile.xp}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#38BDF8', marginTop: 2 }}>{userProfile.xp}</div>
                     </div>
                   </div>
                 </div>
 
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: 10, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: 10, color: '#F8FAFC', display: 'flex', alignItems: 'center', gap: 7 }}>
                   <Sticker3D name="medal" size={20} />
                   <span>Năng Lực Tiếng Anh Hàng Hải (STCW 78/2010):</span>
                 </h4>
-                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 14, padding: 14, marginBottom: 18 }}>
+                <div style={{
+                  background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                  border: '1px solid rgba(34, 211, 238, 0.22)',
+                  borderRadius: 16,
+                  padding: 14,
+                  marginBottom: 18,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)'
+                }}>
                   <div style={{ marginBottom: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', fontWeight: 700, marginBottom: 4 }}>
                       <span>IMO SMCP Vô tuyến điện VHF:</span>
@@ -5779,15 +6029,24 @@ export default function App() {
                 {/* ============================================================= */}
                 {/* 🏆 BẢNG VÀNG THUYỀN VIÊN TOÀN CẦU (TOP CHUỖI & TỪ VỰNG)       */}
                 {/* ============================================================= */}
-                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 16, padding: '16px 14px', marginBottom: 18, boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+                <div style={{
+                  background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                  border: '1px solid rgba(34, 211, 238, 0.22)',
+                  borderRadius: 18,
+                  padding: '16px 14px',
+                  marginBottom: 18,
+                  boxShadow: '0 8px 28px rgba(0,0,0,0.45)',
+                  backdropFilter: 'blur(16px)',
+                  WebkitBackdropFilter: 'blur(16px)'
+                }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Sticker3D name="trophy" size={24} />
                       <div>
-                        <h4 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, color: '#0F172A' }}>
+                        <h4 style={{ fontSize: '0.96rem', fontWeight: 800, margin: 0, color: '#F8FAFC' }}>
                           Bảng Vàng Thuyền Viên Hàng Hải
                         </h4>
-                        <span style={{ fontSize: '0.72rem', color: '#64748B' }}>
+                        <span style={{ fontSize: '0.72rem', color: '#94A3B8' }}>
                           Chuẩn STCW & IMO • Dữ liệu thật Firebase
                         </span>
                       </div>
@@ -5921,18 +6180,18 @@ export default function App() {
                                     padding: '10px 12px',
                                     borderRadius: 14,
                                     background: item.isCurrentUser
-                                      ? 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)'
+                                      ? 'linear-gradient(145deg, rgba(8, 126, 139, 0.4) 0%, rgba(13, 27, 46, 0.95) 100%)'
                                       : isTop1
-                                        ? '#FFFBEB'
+                                        ? 'rgba(245, 158, 11, 0.12)'
                                         : isTop2
-                                          ? '#F8FAFC'
-                                          : '#FFFFFF',
+                                          ? 'rgba(148, 163, 184, 0.12)'
+                                          : 'rgba(15, 36, 61, 0.65)',
                                     border: item.isCurrentUser
-                                      ? '1.5px solid #3B82F6'
+                                      ? '1.5px solid #22D3EE'
                                       : isTop1
-                                        ? '1px solid #FCD34D'
-                                        : '1px solid #F1F5F9',
-                                    boxShadow: item.isCurrentUser ? '0 3px 8px rgba(37, 99, 235, 0.15)' : 'none',
+                                        ? '1px solid rgba(245, 158, 11, 0.4)'
+                                        : '1px solid rgba(255, 255, 255, 0.08)',
+                                    boxShadow: item.isCurrentUser ? '0 4px 16px rgba(34, 211, 238, 0.25)' : 'none',
                                     transition: 'all 0.2s ease'
                                   }}
                                 >
@@ -5942,8 +6201,8 @@ export default function App() {
                                       width: 26,
                                       height: 26,
                                       borderRadius: 8,
-                                      background: isTop1 ? '#F59E0B' : isTop2 ? '#94A3B8' : isTop3 ? '#B45309' : '#E2E8F0',
-                                      color: isTop1 || isTop2 || isTop3 ? '#FFFFFF' : '#475569',
+                                      background: isTop1 ? '#F59E0B' : isTop2 ? '#94A3B8' : isTop3 ? '#B45309' : 'rgba(255,255,255,0.1)',
+                                      color: isTop1 || isTop2 || isTop3 ? '#FFFFFF' : '#94A3B8',
                                       display: 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
@@ -5986,7 +6245,7 @@ export default function App() {
 
                                     <div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: item.isCurrentUser ? '#1D4ED8' : '#0F172A' }}>
+                                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: item.isCurrentUser ? '#22D3EE' : '#F8FAFC' }}>
                                           {item.name}
                                         </span>
                                         {item.isCurrentUser && (
@@ -6040,7 +6299,7 @@ export default function App() {
                 </div>
 
                 {/* App Settings List */}
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: 10, color: '#0F172A', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: 10, color: '#F8FAFC', display: 'flex', alignItems: 'center', gap: 7 }}>
                   <Sticker3D name="gear" size={20} />
                   <span>Cài Đặt Ứng Dụng</span>
                 </h4>
@@ -6049,17 +6308,23 @@ export default function App() {
                   <div
                     className="settings-item"
                     onClick={toggleSlowAudio}
-                    style={{ cursor: 'pointer', border: isSlowAudio ? '1.5px solid #F59E0B' : '1px solid #E2E8F0', background: isSlowAudio ? '#FFFBEB' : '#FFFFFF' }}
+                    style={{
+                      cursor: 'pointer',
+                      border: isSlowAudio ? '1.5px solid #F59E0B' : '1px solid rgba(34, 211, 238, 0.22)',
+                      background: isSlowAudio ? 'rgba(245, 158, 11, 0.15)' : 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: isSlowAudio ? '#D97706' : '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: isSlowAudio ? '#D97706' : '#1E293B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
                         🐢
                       </div>
                       <div>
-                        <div className="settings-item-title" style={{ color: isSlowAudio ? '#92400E' : '#0F172A', fontWeight: 800 }}>
+                        <div className="settings-item-title" style={{ color: isSlowAudio ? '#F59E0B' : '#F8FAFC', fontWeight: 800 }}>
                           Tốc Độ Phát Âm: {isSlowAudio ? 'Đọc Chậm 0.68x (Dễ nghe)' : 'Chuẩn 0.82x'}
                         </div>
-                        <div className="settings-item-sub" style={{ color: isSlowAudio ? '#B45309' : '#64748B', fontWeight: 600 }}>
+                        <div className="settings-item-sub" style={{ color: isSlowAudio ? '#FCD34D' : '#94A3B8', fontWeight: 600 }}>
                           {isSlowAudio ? '● Đang bật chế độ đọc chậm phát âm cho người mới' : '● Chạm để bật chế độ đọc chậm (0.68x)'}
                         </div>
                       </div>
@@ -6068,7 +6333,7 @@ export default function App() {
                       width: 44,
                       height: 24,
                       borderRadius: 12,
-                      background: isSlowAudio ? '#F59E0B' : '#CBD5E1',
+                      background: isSlowAudio ? '#F59E0B' : 'rgba(255, 255, 255, 0.15)',
                       position: 'relative',
                       transition: 'background 0.2s ease',
                       flexShrink: 0
@@ -6091,22 +6356,28 @@ export default function App() {
                   <div
                     className="settings-item"
                     onClick={() => setShowModelModal(true)}
-                    style={{ cursor: 'pointer', border: '1.5px solid #93C5FD', background: '#F0F9FF' }}
+                    style={{
+                      cursor: 'pointer',
+                      border: '1.5px solid rgba(34, 211, 238, 0.35)',
+                      background: 'linear-gradient(145deg, rgba(8, 126, 139, 0.25) 0%, rgba(13, 27, 46, 0.92) 100%)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: '#087E8B', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
                         <Sticker3D name="bot" size={24} />
                       </div>
                       <div>
-                        <div className="settings-item-title" style={{ color: '#1E40AF', fontWeight: 800 }}>
+                        <div className="settings-item-title" style={{ color: '#38BDF8', fontWeight: 800 }}>
                           Danh Mục Model AI Khả Dụng ({AVAILABLE_AI_MODELS.length} Model)
                         </div>
-                        <div className="settings-item-sub" style={{ color: '#0369A1', fontWeight: 600 }}>
-                          ● Đang chọn: <strong>{AVAILABLE_AI_MODELS.find(m => m.id === apiModel)?.name || apiModel}</strong> ({apiModel}) {apiModel === 'imgxh/server-6' && '⭐ (Ưu tiên số 1)'}
+                        <div className="settings-item-sub" style={{ color: '#94A3B8', fontWeight: 600 }}>
+                          ● Đang chọn: <strong style={{ color: '#22D3EE' }}>{AVAILABLE_AI_MODELS.find(m => m.id === apiModel)?.name || apiModel}</strong> ({apiModel}) {apiModel === 'imgxh/server-6' && '⭐ (Ưu tiên số 1)'}
                         </div>
                       </div>
                     </div>
-                    <ChevronRight size={18} color="#0284C7" />
+                    <ChevronRight size={18} color="#22D3EE" />
                   </div>
 
 
@@ -6119,14 +6390,20 @@ export default function App() {
                         icon: 'cloud'
                       });
                     }}
-                    style={{ cursor: 'pointer' }}
+                    style={{
+                      cursor: 'pointer',
+                      border: '1px solid rgba(34, 211, 238, 0.22)',
+                      background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}
                   >
                     <div>
-                      <div className="settings-item-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="settings-item-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#F8FAFC' }}>
                         <Sticker3D name="cloud" size={20} />
                         <span>Đám mây Firebase Cloud</span>
                       </div>
-                      <div className="settings-item-sub" style={{ color: '#16A34A', fontWeight: 600, paddingLeft: 28 }}>
+                      <div className="settings-item-sub" style={{ color: '#34D399', fontWeight: 600, paddingLeft: 28 }}>
                         ● studio-xdudz (Đang kích hoạt vĩnh viễn)
                       </div>
                     </div>
@@ -6136,14 +6413,20 @@ export default function App() {
                   <div
                     className="settings-item"
                     onClick={() => setHasSeenOnboarding(false)}
-                    style={{ cursor: 'pointer' }}
+                    style={{
+                      cursor: 'pointer',
+                      border: '1px solid rgba(34, 211, 238, 0.22)',
+                      background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}
                   >
                     <div>
-                      <div className="settings-item-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="settings-item-title" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#F8FAFC' }}>
                         <Sticker3D name="sparkles" size={20} />
                         <span>Hướng dẫn & Giới thiệu tính năng</span>
                       </div>
-                      <div className="settings-item-sub" style={{ paddingLeft: 28 }}>Xem lại Onboarding chuẩn IMO & STCW</div>
+                      <div className="settings-item-sub" style={{ paddingLeft: 28, color: '#94A3B8' }}>Xem lại Onboarding chuẩn IMO & STCW</div>
                     </div>
                     <ChevronRight size={18} color="#94A3B8" />
                   </div>
@@ -6151,11 +6434,16 @@ export default function App() {
                   <div
                     className="settings-item"
                     onClick={handleLogout}
-                    style={{ cursor: 'pointer', borderLeft: '4px solid #EF4444' }}
+                    style={{
+                      cursor: 'pointer',
+                      border: '1px solid rgba(239, 68, 68, 0.35)',
+                      borderLeft: '4px solid #EF4444',
+                      background: 'rgba(239, 68, 68, 0.08)'
+                    }}
                   >
                     <div>
-                      <div className="settings-item-title" style={{ color: '#DC2626' }}>Đăng xuất tài khoản</div>
-                      <div className="settings-item-sub">Đổi tài khoản hoặc đăng ký tài khoản khác</div>
+                      <div className="settings-item-title" style={{ color: '#F87171' }}>Đăng xuất tài khoản</div>
+                      <div className="settings-item-sub" style={{ color: '#94A3B8' }}>Đổi tài khoản hoặc đăng ký tài khoản khác</div>
                     </div>
                     <ChevronRight size={18} color="#EF4444" />
                   </div>
@@ -6163,44 +6451,58 @@ export default function App() {
                   <div
                     className="settings-item"
                     onClick={handleManualCheckUpdate}
-                    style={{ cursor: 'pointer', border: '1.5px solid #BBF7D0', background: '#F0FDF4' }}
+                    style={{
+                      cursor: 'pointer',
+                      border: '1.5px solid rgba(52, 211, 153, 0.35)',
+                      background: 'rgba(6, 78, 59, 0.25)',
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 38, height: 38, borderRadius: 10, background: '#16A34A', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
+                      <div style={{ width: 38, height: 38, borderRadius: 10, background: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF' }}>
                         <RefreshCw size={20} className={isCheckingUpdate ? 'spin-anim' : ''} />
                       </div>
                       <div>
-                        <div className="settings-item-title" style={{ color: '#166534', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div className="settings-item-title" style={{ color: '#34D399', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
                           <Sticker3D name="rocket" size={18} />
                           <span>Kiểm Tra Cập Nhật Online</span>
                         </div>
-                        <div className="settings-item-sub" style={{ color: '#15803D', fontWeight: 600 }}>
+                        <div className="settings-item-sub" style={{ color: '#6EE7B7', fontWeight: 600 }}>
                           {isCheckingUpdate ? 'Đang kết nối máy chủ...' : `● Phiên bản: ${CURRENT_VERSION_TAG} (Bấm để kiểm tra)`}
                         </div>
                       </div>
                     </div>
-                    <ChevronRight size={18} color="#16A34A" />
+                    <ChevronRight size={18} color="#34D399" />
                   </div>
 
                   <div
                     className="settings-item"
-                    style={{ background: '#F8FAFC', border: '1.5px solid #BFDBFE', display: 'flex', alignItems: 'center', gap: 12 }}
+                    style={{
+                      background: 'linear-gradient(145deg, rgba(13, 27, 46, 0.88) 0%, rgba(8, 18, 32, 0.95) 100%)',
+                      border: '1.5px solid rgba(34, 211, 238, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      backdropFilter: 'blur(16px)',
+                      WebkitBackdropFilter: 'blur(16px)'
+                    }}
                   >
                     <img
                       src="/assets/dio_talk_logo.png"
                       alt="Dio Talk"
-                      style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, boxShadow: '0 3px 8px rgba(37, 99, 235, 0.2)' }}
+                      style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, boxShadow: '0 3px 8px rgba(34, 211, 238, 0.3)' }}
                     />
                     <div style={{ flex: 1 }}>
-                      <div className="settings-item-title" style={{ color: '#1E3A8A', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div className="settings-item-title" style={{ color: '#38BDF8', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Sticker3D name="anchor" size={16} />
                         <span>Dio Talk • MC1 VERSION</span>
                       </div>
-                      <div className="settings-item-sub" style={{ color: '#2563EB', fontWeight: 700 }}>
+                      <div className="settings-item-sub" style={{ color: '#22D3EE', fontWeight: 700 }}>
                         Tác giả: <strong>LÊ QUỐC KHANG</strong> (STCW 78/2010 Standard)
                       </div>
                     </div>
-                    <span style={{ fontSize: '0.72rem', background: '#DBEAFE', color: '#1D4ED8', padding: '3px 8px', borderRadius: 8, fontWeight: 800 }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(34, 211, 238, 0.15)', color: '#22D3EE', border: '1px solid rgba(34, 211, 238, 0.3)', padding: '3px 8px', borderRadius: 8, fontWeight: 800 }}>
                       v1.0-MC1
                     </span>
                   </div>
@@ -6332,6 +6634,19 @@ export default function App() {
               </select>
             </div>
 
+            <div className="dio-input-group">
+              <label className="dio-input-label">Chuỗi ngày Streak thực tế (ngày)</label>
+              <input
+                type="number"
+                min="0"
+                max="365"
+                className="dio-input-field"
+                value={userProfile.streakDays}
+                onChange={(e) => setUserProfile({ ...userProfile, streakDays: Math.max(0, parseInt(e.target.value) || 0) })}
+                placeholder="Nhập số ngày streak thực tế (ví dụ: 2)..."
+              />
+            </div>
+
             <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
               <button
                 className="study-action-btn primary"
@@ -6355,7 +6670,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Sticker3D emoji={selectedGame?.icon || '⚔️'} size={36} />
                 <div>
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0F172A' }}>
+                  <h4 className="duel-header-title">
                     {selectedGame?.title || 'Đấu Từ Vựng Tốc Độ'}
                   </h4>
                   <span style={{ fontSize: '0.72rem', color: '#2563EB', fontWeight: 700 }}>
@@ -6376,9 +6691,10 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setShowDuelModal(false)}
-                  style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                  className="duel-close-btn"
+                  title="Đóng thử thách"
                 >
-                  <X size={18} color="#64748B" />
+                  <X size={18} />
                 </button>
               </div>
             </div>
@@ -6402,14 +6718,7 @@ export default function App() {
                   </div>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '10px 0 14px' }}>
-                    <span style={{
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      color: '#0284C7',
-                      background: '#E0F2FE',
-                      padding: '4px 12px',
-                      borderRadius: 16
-                    }}>
+                    <span className="duel-challenge-pill">
                       🎯 Thử thách kiến thức • Chọn đáp án đúng
                     </span>
                   </div>
@@ -6445,7 +6754,7 @@ export default function App() {
 
                 {duelIsChecked && (
                   <div style={{ marginTop: 10 }}>
-                    <div style={{ fontSize: '0.8rem', color: '#475569', background: '#F8FAFC', padding: '10px 14px', borderRadius: 12, marginBottom: 12 }}>
+                    <div className="duel-explanation-box">
                       💡 {activeGameQuestions[duelQIndex].explanation}
                     </div>
                     <button
@@ -6464,23 +6773,23 @@ export default function App() {
                 <div style={{ marginBottom: 10 }}>
                   <Sticker3D name="trophy" size={68} />
                 </div>
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0F172A', marginTop: 8 }}>
+                <h3 className="duel-finished-title">
                   HOÀN THÀNH THỬ THÁCH!
                 </h3>
-                <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '6px 0 18px 0' }}>
+                <p className="duel-finished-sub">
                   Bạn đã trả lời đúng {duelScore} / {activeGameQuestions.length} câu hỏi thử thách.
                 </p>
 
                 <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-                  <div style={{ flex: 1, background: '#EFF6FF', borderRadius: 16, padding: 14 }}>
-                    <div style={{ fontSize: '0.75rem', color: '#2563EB', fontWeight: 700 }}>ĐIỂM KINH NGHIỆM</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#1E40AF', marginTop: 2 }}>
+                  <div className="duel-stat-card xp">
+                    <div className="duel-stat-card-label">ĐIỂM KINH NGHIỆM</div>
+                    <div className="duel-stat-card-val">
                       +{duelScore * 15} XP
                     </div>
                   </div>
-                  <div style={{ flex: 1, background: '#FEF3C7', borderRadius: 16, padding: 14 }}>
-                    <div style={{ fontSize: '0.75rem', color: '#B45309', fontWeight: 700 }}>XU THƯỞNG</div>
-                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#92400E', marginTop: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <div className="duel-stat-card coins">
+                    <div className="duel-stat-card-label">XU THƯỞNG</div>
+                    <div className="duel-stat-card-val" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                       <span>+{duelScore * 5}</span>
                       <Sticker3D name="coin" size={20} />
                     </div>
@@ -6869,11 +7178,30 @@ export default function App() {
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#0F172A' }}>Chuỗi Ngày Streak</h3>
-                  {completedToday >= 25 ? (
-                    <span style={{ fontSize: '0.8rem', color: '#EA580C', fontWeight: 800 }}>{userProfile.streakDays} ngày liên tiếp • Đã giữ lửa 🔥</span>
-                  ) : (
-                    <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 800 }}>{userProfile.streakDays} ngày liên tiếp • Lửa đang le lói 🕯️</span>
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+                    <span style={{ fontSize: '0.8rem', color: completedToday >= 25 ? '#EA580C' : '#64748B', fontWeight: 800 }}>
+                      {userProfile.streakDays} ngày liên tiếp • {completedToday >= 25 ? 'Đã giữ lửa 🔥' : 'Lửa đang le lói 🕯️'}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setShowStreakModal(false);
+                        setShowAuthModal(true);
+                      }}
+                      style={{
+                        background: 'rgba(2, 132, 199, 0.1)',
+                        border: '1px solid rgba(2, 132, 199, 0.3)',
+                        borderRadius: 6,
+                        padding: '1px 6px',
+                        color: '#0284C7',
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                      title="Chỉnh sửa lại số ngày Streak chuẩn xác với thực tế"
+                    >
+                      Sửa chuỗi
+                    </button>
+                  </div>
                 </div>
               </div>
               <button
@@ -7119,42 +7447,57 @@ export default function App() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            className="dio-custom-alert-card"
             style={{
-              background: '#FFFFFF',
+              background: 'rgba(10, 22, 38, 0.95)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
               borderRadius: 24,
-              padding: '24px 20px 20px 20px',
+              padding: '26px 22px 22px 22px',
               maxWidth: 360,
               width: '100%',
-              boxShadow: '0 20px 45px rgba(15, 23, 42, 0.25)',
-              border: '1.5px solid #E2E8F0',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+              border: '1.5px solid rgba(34, 211, 238, 0.28)',
               textAlign: 'center',
-              animation: 'popIn 0.22s ease-out'
+              animation: 'popIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
-            <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #BFDBFE' }}>
-                <Sticker3D name={(customAlert.icon as any) || 'info'} size={32} />
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+              <div
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  background: customAlert.icon === 'warning' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(34, 211, 238, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: customAlert.icon === 'warning' ? '2px solid rgba(245, 158, 11, 0.45)' : '2px solid rgba(34, 211, 238, 0.4)',
+                  boxShadow: customAlert.icon === 'warning' ? '0 0 20px rgba(245, 158, 11, 0.3)' : '0 0 20px rgba(34, 211, 238, 0.25)'
+                }}
+              >
+                <Sticker3D name={(customAlert.icon as any) || 'info'} size={34} />
               </div>
             </div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
+            <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#F8FAFC', marginBottom: 10, letterSpacing: '-0.01em' }}>
               {customAlert.title}
             </h3>
-            <p style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.55, whiteSpace: 'pre-line', marginBottom: 20, fontWeight: 500 }}>
+            <p style={{ fontSize: '0.88rem', color: '#CBD5E1', lineHeight: 1.6, whiteSpace: 'pre-line', marginBottom: 22, fontWeight: 500 }}>
               {customAlert.message}
             </p>
             <button
               onClick={() => setCustomAlert(null)}
               style={{
                 width: '100%',
-                padding: '12px 18px',
+                padding: '13px 20px',
                 borderRadius: 14,
-                background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                background: 'linear-gradient(135deg, #0ea5e9, #2563eb)',
                 color: '#FFFFFF',
                 fontWeight: 800,
-                fontSize: '0.92rem',
+                fontSize: '0.94rem',
                 border: 'none',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                boxShadow: '0 4px 16px rgba(14, 165, 233, 0.4)'
               }}
             >
               Đồng Ý
@@ -7174,27 +7517,42 @@ export default function App() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
+            className="dio-custom-confirm-card"
             style={{
-              background: '#FFFFFF',
+              background: 'rgba(10, 22, 38, 0.95)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
               borderRadius: 24,
-              padding: '24px 20px 20px 20px',
+              padding: '26px 22px 22px 22px',
               maxWidth: 360,
               width: '100%',
-              boxShadow: '0 20px 45px rgba(15, 23, 42, 0.25)',
-              border: '1.5px solid #E2E8F0',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+              border: '1.5px solid rgba(34, 211, 238, 0.28)',
               textAlign: 'center',
-              animation: 'popIn 0.22s ease-out'
+              animation: 'popIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
-            <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: customConfirm.isDestructive ? '#FEE2E2' : '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: customConfirm.isDestructive ? '2px solid #FECACA' : '2px solid #BFDBFE' }}>
-                <Clock size={29} strokeWidth={2.4} aria-hidden="true" />
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+              <div
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: '50%',
+                  background: customConfirm.isDestructive ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 211, 238, 0.12)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: customConfirm.isDestructive ? '2px solid rgba(239, 68, 68, 0.45)' : '2px solid rgba(34, 211, 238, 0.4)',
+                  boxShadow: customConfirm.isDestructive ? '0 0 20px rgba(239, 68, 68, 0.3)' : '0 0 20px rgba(34, 211, 238, 0.25)'
+                }}
+              >
+                <Clock size={28} strokeWidth={2.4} color={customConfirm.isDestructive ? '#EF4444' : '#22D3EE'} aria-hidden="true" />
               </div>
             </div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0F172A', marginBottom: 8 }}>
+            <h3 style={{ fontSize: '1.18rem', fontWeight: 800, color: '#F8FAFC', marginBottom: 10, letterSpacing: '-0.01em' }}>
               {customConfirm.title}
             </h3>
-            <p style={{ fontSize: '0.88rem', color: '#334155', lineHeight: 1.55, whiteSpace: 'pre-line', marginBottom: 20, fontWeight: 500 }}>
+            <p style={{ fontSize: '0.88rem', color: '#CBD5E1', lineHeight: 1.6, whiteSpace: 'pre-line', marginBottom: 22, fontWeight: 500 }}>
               {customConfirm.message}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -7204,11 +7562,11 @@ export default function App() {
                   flex: 1,
                   padding: '12px 14px',
                   borderRadius: 14,
-                  background: '#F1F5F9',
-                  color: '#475569',
+                  background: 'rgba(15, 36, 61, 0.75)',
+                  color: '#94A3B8',
                   fontWeight: 800,
                   fontSize: '0.9rem',
-                  border: '1.5px solid #CBD5E1',
+                  border: '1px solid rgba(34, 211, 238, 0.25)',
                   cursor: 'pointer'
                 }}
               >
@@ -7224,13 +7582,13 @@ export default function App() {
                   flex: 1,
                   padding: '12px 14px',
                   borderRadius: 14,
-                  background: customConfirm.isDestructive ? 'linear-gradient(135deg, #EF4444, #DC2626)' : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                  background: customConfirm.isDestructive ? 'linear-gradient(135deg, #EF4444, #DC2626)' : 'linear-gradient(135deg, #0ea5e9, #2563eb)',
                   color: '#FFFFFF',
                   fontWeight: 800,
                   fontSize: '0.9rem',
                   border: 'none',
                   cursor: 'pointer',
-                  boxShadow: customConfirm.isDestructive ? '0 4px 12px rgba(239, 68, 68, 0.3)' : '0 4px 12px rgba(37, 99, 235, 0.3)'
+                  boxShadow: customConfirm.isDestructive ? '0 4px 14px rgba(239, 68, 68, 0.4)' : '0 4px 14px rgba(14, 165, 233, 0.4)'
                 }}
               >
                 {customConfirm.confirmText || 'Xác nhận'}

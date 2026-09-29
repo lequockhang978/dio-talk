@@ -53,9 +53,9 @@ export const OnboardingScreen = ({ onFinish }: OnboardingScreenProps) => {
       <header className="dio-onboarding-topbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sticker3D name="ship" size={28} />
-          <strong style={{ color: 'var(--dt-navy)', fontSize: '1.1rem' }}>Dio Talk</strong>
+          <strong style={{ color: '#F8FAFC', fontSize: '1.1rem' }}>Dio Talk</strong>
         </div>
-        <span style={{ color: 'var(--text-sub)', fontSize: '.74rem', fontWeight: 800 }}>{step + 1}/{steps.length}</span>
+        <span style={{ color: '#22D3EE', fontSize: '.74rem', fontWeight: 800 }}>{step + 1}/{steps.length}</span>
       </header>
 
       <section className="dio-onboarding-content" style={{ justifyContent: 'center' }}>
@@ -65,11 +65,12 @@ export const OnboardingScreen = ({ onFinish }: OnboardingScreenProps) => {
               <span
                 key={label}
                 style={{
-                  background: index <= step ? 'var(--dt-aqua)' : '#d9e7e8',
+                  background: index <= step ? '#087E8B' : 'rgba(255, 255, 255, 0.12)',
+                  boxShadow: index <= step ? '0 0 8px rgba(34, 211, 238, 0.5)' : 'none',
                   borderRadius: 99,
                   flex: 1,
                   height: 7,
-                  transition: 'background 0.3s ease'
+                  transition: 'all 0.3s ease'
                 }}
               />
             ))}
@@ -97,11 +98,11 @@ export const OnboardingScreen = ({ onFinish }: OnboardingScreenProps) => {
                       <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {item.icon}
                         <span>
-                          <strong style={{ display: 'block' }}>{item.title}</strong>
-                          <small style={{ color: isSel ? 'var(--dt-aqua)' : 'var(--text-sub)' }}>{item.text}</small>
+                          <strong style={{ display: 'block', color: isSel ? '#22D3EE' : '#F8FAFC' }}>{item.title}</strong>
+                          <small style={{ color: isSel ? '#67E8F9' : '#94A3B8' }}>{item.text}</small>
                         </span>
                       </span>
-                      {isSel && <Check color="var(--dt-aqua)" size={20} />}
+                      {isSel && <Check color="#22D3EE" size={20} />}
                     </button>
                   );
                 })}

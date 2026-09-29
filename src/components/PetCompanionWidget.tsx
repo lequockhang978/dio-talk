@@ -24,13 +24,11 @@ export const PetCompanionWidget: React.FC<PetCompanionWidgetProps> = ({
 
   return (
     <div
+      className="dio-pet-widget-card"
       style={{
-        background: 'linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%)',
-        borderRadius: 20,
+        borderRadius: 22,
         padding: '14px 16px',
         margin: '14px 0',
-        border: '1.5px solid #BAE6FD',
-        boxShadow: '0 4px 14px rgba(2, 132, 199, 0.08)',
         display: 'flex',
         alignItems: 'center',
         gap: 14,
@@ -70,7 +68,7 @@ export const PetCompanionWidget: React.FC<PetCompanionWidgetProps> = ({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: '0.88rem', fontWeight: 900, color: '#0F172A' }}>
+            <span className="dio-pet-name" style={{ fontSize: '0.88rem', fontWeight: 900 }}>
               Dio Thủy Thủ
             </span>
             <span
@@ -88,26 +86,23 @@ export const PetCompanionWidget: React.FC<PetCompanionWidgetProps> = ({
           </div>
         </div>
 
-        <div style={{ fontSize: '0.76rem', color: '#334155', lineHeight: 1.35, fontStyle: 'italic', marginBottom: 8 }}>
+        <div className="dio-pet-quote" style={{ fontSize: '0.76rem', lineHeight: 1.35, fontStyle: 'italic', marginBottom: 8 }}>
           "{skin.quote}"
         </div>
 
         {/* Change skin button */}
         <button
           onClick={onOpenWardrobe}
+          className="dio-pet-wardrobe-btn"
           style={{
-            background: '#FFFFFF',
-            border: '1.5px solid #BAE6FD',
             borderRadius: 12,
             padding: '4px 10px',
             fontSize: '0.72rem',
             fontWeight: 800,
-            color: '#0284C7',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            cursor: 'pointer',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
+            cursor: 'pointer'
           }}
         >
           <Sticker3D name="sparkles" size={14} />

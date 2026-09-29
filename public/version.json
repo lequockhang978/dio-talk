@@ -1,15 +1,14 @@
 {
-  "version": "2.3.1",
-  "versionCode": 231,
-  "releaseDate": "2026-09-28",
-  "title": "Bản cập nhật Dio Talk v2.3.1 (Sửa Lỗi AI Thinking, Chế Độ Đọc Chậm 🐢, Âm Thanh Vô Tuyến VHF)",
+  "version": "2.3.2",
+  "versionCode": 232,
+  "releaseDate": "2026-09-29",
+  "title": "Bản cập nhật Dio Talk v2.3.2 (Đồng Bộ Chuỗi Streak Cloud & Chuẩn Hóa Giờ Địa Phương 00:00)",
   "changelog": [
-    "Sửa triệt để lỗi Server 6 (Thinking model) - phản hồi tự nhiên và mượt mà",
-    "Thêm chế độ phát âm đọc chậm 0.68x chuyên sâu cho người mới bắt đầu",
-    "Tích hợp hiệu ứng âm thanh xào sóng vô tuyến hàng hải VHF (Squelch) và Roger Beep chuẩn STCW",
-    "Bảo mật endpoint API AI và bổ sung Service Worker hỗ trợ ngoại tuyến 100%",
-    "Mở rộng thêm 12 câu hỏi thực chiến chuẩn đề thi STCW / Marlins Test"
+    "Sửa triệt để lỗi xung đột chuỗi Streak Cloud - ngăn chặn popup tắt lửa sai khi đang có chuỗi học",
+    "Tự động lưu và phục hồi ngày Streak qua Firestore Cloud khi đổi máy hoặc đăng nhập lại",
+    "Chuẩn hóa mốc tính ngày 25 câu chuẩn 00:00 nửa đêm theo giờ địa phương máy thiết bị",
+    "Nâng cấp độ ổn định cho các minigame và âm thanh vô tuyến VHF"
   ],
-  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v2.3.1/dio-talk-v2.3.1.apk",
+  "apkUrl": "https://github.com/lequockhang978/dio-talk/releases/download/v2.3.2/dio-talk-v2.3.2.apk",
   "isMandatory": false
 }

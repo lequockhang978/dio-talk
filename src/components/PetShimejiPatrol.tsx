@@ -219,6 +219,7 @@ export const PetShimejiPatrol: React.FC<PetShimejiPatrolProps> = ({
       {/* 1. SPEECH BUBBLE (TƯƠNG TÁC & CHỈ HỌC) */}
       {activeSpeech && (
         <div
+          className="dio-shimeji-bubble"
           style={{
             position: 'absolute',
             bottom: 64,
@@ -236,6 +237,7 @@ export const PetShimejiPatrol: React.FC<PetShimejiPatrolProps> = ({
         >
           {/* Close mini bubble */}
           <button
+            className="dio-shimeji-close-btn"
             onClick={(e) => {
               e.stopPropagation();
               setActiveSpeech(null);
@@ -256,6 +258,7 @@ export const PetShimejiPatrol: React.FC<PetShimejiPatrolProps> = ({
 
           {/* Bubble Tail */}
           <div
+            className="dio-shimeji-tail"
             style={{
               position: 'absolute',
               bottom: -8,
@@ -287,6 +290,7 @@ export const PetShimejiPatrol: React.FC<PetShimejiPatrolProps> = ({
 
           {/* Message Text */}
           <div
+            className="dio-shimeji-text"
             style={{
               fontSize: '0.78rem',
               fontWeight: 700,
@@ -360,6 +364,7 @@ export const PetShimejiPatrol: React.FC<PetShimejiPatrolProps> = ({
 
             {/* Sleep Dio Button */}
             <button
+              className="dio-shimeji-sleep-btn"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleSleep(true);

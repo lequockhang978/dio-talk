@@ -43,9 +43,18 @@ export type StickerName =
   | 'bulb'
   | 'mic'
   | 'bell'
+  | 'warning'
+  | 'info'
   | 'lightning';
 
 const EMOJI_MAP: Record<string, StickerName> = {
+  '⚠️': 'warning',
+  'warning': 'warning',
+  'info': 'info',
+  'ℹ️': 'info',
+  'ℹ': 'info',
+  '🕯️': 'warning',
+  '🕯': 'warning',
   '👨‍✈️': 'chief-engineer',
   '📡': 'vts-radar',
   '📋': 'psc-clipboard',
@@ -999,8 +1008,77 @@ export const Sticker3D: React.FC<Sticker3DProps> = ({
         </svg>
       );
 
-    default:
-      // Fallback for any other emoji/symbol: Wrap in an isometric 3D glossy badge container
+    case 'warning':
+      return (
+        <svg width={size} height={size} viewBox="0 0 54 54" fill="none" style={commonStyle} className={className}>
+          <defs>
+            <radialGradient id="warnGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="#D97706" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="warnPlate" x1="27" y1="8" x2="27" y2="48" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#FFFBEB" />
+              <stop offset="20%" stopColor="#FEF3C7" />
+              <stop offset="70%" stopColor="#F59E0B" />
+              <stop offset="100%" stopColor="#B45309" />
+            </linearGradient>
+          </defs>
+          <circle cx="27" cy="28" r="24" fill="url(#warnGlow)" />
+          <path
+            d="M27 7L49 45C50.2 47 48.7 49 46.4 49H7.6C5.3 49 3.8 47 5 45L27 7Z"
+            fill="#78350F"
+          />
+          <path
+            d="M27 8.5L48 44C48.8 45.4 47.8 47 46.2 47H7.8C6.2 47 5.2 45.4 6 44L27 8.5Z"
+            fill="url(#warnPlate)"
+            stroke="#FEF08A"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M27 13L44 42H10L27 13Z"
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.5)"
+            strokeWidth="1"
+          />
+          <path
+            d="M27 21V32"
+            stroke="#0F172A"
+            strokeWidth="4"
+            strokeLinecap="round"
+          />
+          <circle cx="27" cy="38" r="2.5" fill="#0F172A" />
+        </svg>
+      );
+
+    case 'info':
+      return (
+        <svg width={size} height={size} viewBox="0 0 54 54" fill="none" style={commonStyle} className={className}>
+          <defs>
+            <radialGradient id="infoGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#22D3EE" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#0284C7" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="infoBody" x1="12" y1="10" x2="42" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#38BDF8" />
+              <stop offset="50%" stopColor="#0284C7" />
+              <stop offset="100%" stopColor="#1E3A8A" />
+            </linearGradient>
+            <radialGradient id="infoSpec" cx="35%" cy="30%" r="40%">
+              <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.75" />
+              <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="27" cy="27" r="25" fill="url(#infoGlow)" />
+          <circle cx="27" cy="27" r="20" fill="#0F172A" />
+          <circle cx="27" cy="27" r="19" fill="url(#infoBody)" stroke="#38BDF8" strokeWidth="1.2" />
+          <ellipse cx="23" cy="18" rx="10" ry="5" fill="url(#infoSpec)" />
+          <circle cx="27" cy="18" r="2.5" fill="#FFFFFF" />
+          <path d="M27 23V35" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" />
+        </svg>
+      );
+
+    default: {
+      const isEmoji = query.length <= 2;
       return (
         <span
           className={`sticker-3d-badge ${className}`}
@@ -1010,16 +1088,18 @@ export const Sticker3D: React.FC<Sticker3DProps> = ({
             justifyContent: 'center',
             width: size,
             height: size,
-            fontSize: size * 0.58,
-            background: 'linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 50%, #E2E8F0 100%)',
+            fontSize: isEmoji ? size * 0.58 : size * 0.45,
+            background: 'linear-gradient(135deg, rgba(15, 36, 61, 0.9) 0%, rgba(10, 22, 38, 0.95) 100%)',
             borderRadius: Math.round(size * 0.32),
-            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.12), inset 0 1px 1px #FFFFFF, inset 0 -2px 3px rgba(0, 0, 0, 0.08)',
-            border: '1px solid rgba(255, 255, 255, 0.9)',
+            boxShadow: '0 4px 10px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
+            border: '1px solid rgba(34, 211, 238, 0.3)',
+            color: '#22D3EE',
             ...commonStyle
           }}
         >
-          {query}
+          {isEmoji ? query : '🔔'}
         </span>
       );
+    }
   }
 };
